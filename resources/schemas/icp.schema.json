@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omni-leads.test/schemas/icp.json",
+  "type": "object",
+  "properties": {
+    "industry": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "keywords": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 80 }, "minItems": 1, "maxItems": 30 },
+    "countries": { "type": "array", "items": { "type": "string", "minLength": 2, "maxLength": 2 }, "minItems": 1, "maxItems": 20 },
+    "regions": { "type": "array", "items": { "type": "string", "maxLength": 80 }, "maxItems": 50 },
+    "company_size": { "type": ["string", "null"], "enum": ["1-10", "11-50", "51-200", "200+", null] },
+    "job_titles": { "type": "array", "items": { "type": "string", "maxLength": 60 }, "maxItems": 20 },
+    "signals": {
+      "type": "object",
+      "properties": {
+        "has_website": { "type": ["boolean", "null"] },
+        "min_reviews": { "type": ["integer", "null"], "minimum": 0 },
+        "min_rating": { "type": ["number", "null"], "minimum": 0, "maximum": 5 }
+      }
+    }
+  },
+  "required": ["industry", "keywords", "countries"]
+}

@@ -3,39 +3,39 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
-        <div class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
-            <div class="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-e dark:border-neutral-800">
-                <div class="absolute inset-0 bg-neutral-900"></div>
-                <a href="{{ route('home') }}" class="relative z-20 flex items-center text-lg font-medium" wire:navigate>
-                    <span class="flex h-10 w-10 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="me-2 h-7 fill-current text-white" />
-                    </span>
-                    {{ config('app.name', 'Laravel') }}
-                </a>
+    <body class="app relative min-h-svh noise">
+        <div class="grid min-h-svh grid-cols-1 lg:grid-cols-12">
+            <aside class="relative isolate hidden overflow-hidden border-r border-white/6 p-10 lg:col-span-6 lg:flex lg:flex-col xl:col-span-7">
+                <div class="grid-bg absolute inset-0 -z-10"></div>
+                <div class="glow absolute inset-x-0 top-0 -z-10 h-[60vh]"></div>
 
-                @php
-                    [$message, $author] = str(Illuminate\Foundation\Inspiring::quotes()->random())->explode('-');
-                @endphp
+                <x-brand />
 
-                <div class="relative z-20 mt-auto">
-                    <blockquote class="space-y-2">
-                        <flux:heading size="lg">&ldquo;{{ trim($message) }}&rdquo;</flux:heading>
-                        <footer><flux:heading>{{ trim($author) }}</flux:heading></footer>
-                    </blockquote>
+                <div class="mt-auto max-w-xl">
+                    <p class="eyebrow mb-6 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>ICP</span><span class="text-zinc-700">→</span>
+                        <span>{{ __('discovery') }}</span><span class="text-zinc-700">→</span>
+                        <span>{{ __('enrichment') }}</span><span class="text-zinc-700">→</span>
+                        <span class="text-signal">{{ __('score') }}</span>
+                    </p>
+                    <h1 class="display text-6xl font-semibold text-white xl:text-7xl">
+                        {{ __('Your next 500 customers,') }}<br>
+                        <span class="serif-it text-zinc-300">{{ __('already listed.') }}</span>
+                    </h1>
+                    <ul class="font-mono mt-10 space-y-2 text-xs text-zinc-400">
+                        @foreach (['google_places' => __('text search, one query per keyword × region'), 'hunter' => __('email by domain, cached per lead'), 'evolution' => __('WhatsApp validation and first message'), 'score' => __('normalized over the criteria you actually set')] as $k => $v)
+                            <li class="flex gap-3"><span class="w-28 shrink-0 text-zinc-600">{{ $k }}</span><span>{{ $v }}</span></li>
+                        @endforeach
+                    </ul>
                 </div>
-            </div>
-            <div class="w-full lg:p-8">
-                <div class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-                    <a href="{{ route('home') }}" class="z-20 flex flex-col items-center gap-2 font-medium lg:hidden" wire:navigate>
-                        <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                            <x-app-logo-icon class="size-9 fill-current text-black dark:text-white" />
-                        </span>
+            </aside>
 
-                        <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
-                    </a>
+            <div class="flex flex-col px-6 py-8 lg:col-span-6 xl:col-span-5">
+                <x-brand class="lg:hidden" />
+                <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
                     {{ $slot }}
                 </div>
+                <p class="font-mono text-2xs text-zinc-600">{{ __('No credit card. Bring your own API keys.') }}</p>
             </div>
         </div>
 

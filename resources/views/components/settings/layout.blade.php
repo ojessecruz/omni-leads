@@ -1,20 +1,19 @@
-<div class="flex items-start max-md:flex-col">
-    <div class="me-10 w-full pb-4 md:w-[220px]">
-        <flux:navlist aria-label="{{ __('Settings') }}">
-            <flux:navlist.item :href="route('profile.edit')" wire:navigate>{{ __('Profile') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('security.edit')" wire:navigate>{{ __('Security') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
-        </flux:navlist>
-    </div>
+<div class="grid grid-cols-1 gap-8 md:grid-cols-12" data-reveal>
+    <nav class="font-mono flex flex-wrap gap-x-6 gap-y-2 text-2xs uppercase tracking-label md:col-span-3 md:flex-col md:gap-y-3" aria-label="{{ __('Settings') }}">
+        @foreach ([['profile.edit', __('Profile'), '01'], ['security.edit', __('Security'), '02'], ['appearance.edit', __('Appearance'), '03']] as [$route, $label, $n])
+            <a href="{{ route($route) }}" wire:navigate class="flex items-center gap-2 {{ request()->routeIs($route) ? 'text-white' : 'text-zinc-500 hover:text-white' }}">
+                <span class="{{ request()->routeIs($route) ? 'text-signal' : 'text-zinc-700' }}">{{ $n }}</span>{{ $label }}
+            </a>
+        @endforeach
+    </nav>
 
-    <flux:separator class="md:hidden" />
-
-    <div class="flex-1 self-stretch max-md:pt-6">
-        <flux:heading>{{ $heading ?? '' }}</flux:heading>
-        <flux:subheading>{{ $subheading ?? '' }}</flux:subheading>
-
-        <div class="mt-5 w-full max-w-lg">
-            {{ $slot }}
+    <div class="md:col-span-9">
+        <div class="panel p-6 md:p-8">
+            <h2 class="display text-3xl font-semibold text-white">{{ $heading ?? '' }}</h2>
+            <p class="mt-2 text-sm text-zinc-400">{{ $subheading ?? '' }}</p>
+            <div class="mt-6 w-full max-w-lg">
+                {{ $slot }}
+            </div>
         </div>
     </div>
 </div>

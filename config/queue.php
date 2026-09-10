@@ -68,7 +68,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Must exceed the longest job timeout (SourceSearchJob: 1800s) or Horizon
+            // re-reserves running jobs and paid API calls run twice.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 1830),
             'block_for' => null,
             'after_commit' => false,
         ],
