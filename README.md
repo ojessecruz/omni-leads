@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/images/omni-leads-logo.png" alt="Omni Leads" width="320">
+  <img src=".github/assets/readme-banner.png" alt="Omni Leads" width="720">
 </p>
 
 <p align="center">
