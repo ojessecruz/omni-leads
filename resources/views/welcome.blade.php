@@ -286,7 +286,7 @@
             <img src="{{ asset('images/omni-leads-logo.png') }}" alt="Omni Leads" class="h-14 w-auto">
             <span>{{ date('Y') }}</span>
         </a>
-        <span>{{ __('Bring your own API keys. Your data stays in your database.') }}</span>
+        <span>{{ __('Bring your own API keys.') }}</span>
     </div>
 </footer>
 
