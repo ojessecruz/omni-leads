@@ -19,6 +19,7 @@ Defina o ICP ideal para prospecção via Google Places (buscas do tipo "{palavra
 }
 
 Regras:
+- industry: só o nome do segmento, de 1 a 4 palavras (ex.: "beleza e bem-estar"), no máximo 80 caracteres.
 - keywords: 3 a 8 termos como o dono do negócio se descreveria no Google Maps (ex.: "clínica de estética", "day spa").
 - regions: cidades ou bairros específicos, no idioma local.
 - countries: só códigos de 2 letras (BR, US, PT).

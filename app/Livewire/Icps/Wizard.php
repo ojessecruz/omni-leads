@@ -176,6 +176,10 @@ class Wizard extends Component
 
     protected function applyAiResponse(): void
     {
+        if ($this->isPastedPrompt((string) $this->draft['ai_response'])) {
+            throw ValidationException::withMessages(['draft.ai_response' => __('This is the prompt, not the answer. Paste it into your agent and bring back the JSON it replies with.')]);
+        }
+
         try {
             $criteria = app(IcpJsonParser::class)->parse((string) $this->draft['ai_response']);
         } catch (IcpParseException $e) {
@@ -195,6 +199,14 @@ class Wizard extends Component
             'min_reviews' => $criteria->minReviews,
             'min_rating' => $criteria->minRating,
         ]);
+    }
+
+    /** Pasting the prompt back instead of the agent's reply is the most common mistake. */
+    protected function isPastedPrompt(string $response): bool
+    {
+        $firstLine = trim(strtok($this->prompt(), "\n") ?: '');
+
+        return $firstLine !== '' && str_contains($response, $firstLine);
     }
 
     public function goTo(int $step): void

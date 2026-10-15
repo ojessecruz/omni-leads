@@ -473,5 +473,6 @@
     "Radius (km)": "Radio (km)",
     "Area name": "Nombre del área",
     "e.g. Moema, São Paulo": "ej.: Palermo, Buenos Aires",
-    "Add area": "Agregar área"
+    "Add area": "Agregar área",
+    "This is the prompt, not the answer. Paste it into your agent and bring back the JSON it replies with.": "Esto es el prompt, no la respuesta. Pégalo en tu agente y trae de vuelta el JSON que responda."
 }

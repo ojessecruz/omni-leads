@@ -66,6 +66,8 @@
                 <p class="mt-3 text-sm text-zinc-400">{{ __('It can come with text around it or inside ```json```. I clean it up and validate.') }}</p>
             </div>
             <flux:textarea wire:model="draft.ai_response" rows="14" class="font-mono text-xs" placeholder='{ "industry": "...", "keywords": [...], ... }' />
+            {{-- Without a label Flux does not render the field error on its own. --}}
+            <flux:error name="draft.ai_response" />
 
         @elseif ($step === 3)
             <div>

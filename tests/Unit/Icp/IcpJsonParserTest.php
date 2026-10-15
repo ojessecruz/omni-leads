@@ -67,3 +67,19 @@ test('erro amigável em tipo errado', function () {
 test('vazio pede para colar', function () {
     expect(fn () => (new IcpJsonParser)->parse("  \n"))->toThrow(IcpParseException::class, 'Paste the agent answer');
 });
+
+test('segmento longo demais vira só a primeira parte em vez de reprovar o JSON', function () {
+    $json = json_encode([
+        'industry' => 'Beleza e bem-estar, com foco em profissionais autônomos e pequenos estabelecimentos que trabalham com hora marcada e dependem de uma agenda recorrente de clientes.',
+        'keywords' => ['barbearia', 'salão de beleza'],
+        'countries' => ['BR'],
+        'regions' => ['São Paulo, SP', 'Cataguases, MG'],
+        'company_size' => '1-10',
+        'job_titles' => ['Proprietário de barbearia'],
+        'signals' => ['has_website' => false, 'min_reviews' => 10, 'min_rating' => 4.0],
+    ]);
+
+    expect((new IcpJsonParser)->parse($json)->industry)->toBe('Beleza e bem-estar')
+        ->and((new IcpJsonParser)->parse('{"industry":"'.str_repeat('palavra ', 15).'","keywords":["a"],"countries":["BR"]}')->industry)
+        ->toBe(trim(str_repeat('palavra ', 10)));
+});

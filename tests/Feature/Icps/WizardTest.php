@@ -145,6 +145,11 @@ test('fluxo Ask AI: prompt com contexto, resposta parseada vira critérios e pul
         ->call('next')->assertHasErrors('draft.ai_response')
         ->set('draft.ai_response', 'texto sem json')
         ->call('next')->assertHasErrors('draft.ai_response')->assertSet('step', 4)
+        ->assertSee('No JSON found in the answer')
+        // pasting the prompt back gets its own message
+        ->set('draft.ai_response', "You are an expert in defining ICPs (Ideal Customer Profiles).\nProduct context: ...")
+        ->call('next')->assertHasErrors('draft.ai_response')->assertSet('step', 4)
+        ->assertSee('This is the prompt, not the answer.')
         ->set('draft.ai_response', "Segue:\n```json\n{\"industry\":\"estética\",\"keywords\":[\"day spa\"],\"countries\":[\"br\"],\"regions\":[\"Moema\"],\"company_size\":\"11-50\",\"job_titles\":[\"owner\"],\"signals\":{\"has_website\":true,\"min_reviews\":5,\"min_rating\":4.2}}\n```")
         ->call('next')->assertHasNoErrors()
         ->assertSet('step', 5)
