@@ -8,6 +8,72 @@
     </x-ui.page-header>
 
     <div class="space-y-6" data-reveal>
+        <x-ui.panel :eyebrow="__('Outbound')" :title="__('Cold email')">
+            @if ($outbound)
+                <x-slot name="actions"><span class="chip chip-signal">{{ $outboundLabel }} · {{ $outbound->maskedKey() }}</span></x-slot>
+            @endif
+
+            <p class="text-sm text-zinc-400">{{ __('Qualified leads with an email go to a sequence in your cold email tool, using your own API key. Sends, replies and bounces come back to the lead.') }}</p>
+
+            @if (! $outbound)
+                <form wire:submit="connectOutbound" class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-[12rem_1fr_auto]">
+                    <flux:select wire:model="connector" :label="__('Connector')">
+                        @foreach ($connectors as $key => $label)
+                            <flux:select.option wire:key="connector-{{ $key }}" value="{{ $key }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:input wire:model="apiKey" type="password" :label="__('API key')" class="font-mono" autocomplete="off" />
+                    <div class="md:pt-6">
+                        <flux:button type="submit" variant="primary" icon="link">{{ __('Connect') }}</flux:button>
+                    </div>
+                </form>
+                <p class="mt-3 text-xs text-zinc-500">{{ __('The key is checked against the tool before saving and stored encrypted.') }}</p>
+            @else
+                @if ($outbound->last_error)
+                    <div class="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
+                        <p class="eyebrow text-red-400">{{ __('Last error') }}</p>
+                        <p class="font-mono mt-2 text-xs break-words">{{ $outbound->last_error }}</p>
+                    </div>
+                @endif
+
+                <form wire:submit="saveOutbound" class="mt-6 space-y-4">
+                    @if ($campaignsError)
+                        <p class="text-sm text-red-400">{{ __('Could not load the campaigns: :reason', ['reason' => $campaignsError]) }}</p>
+                    @endif
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
+                        <flux:select wire:model="campaignId" :label="__('Campaign')" :placeholder="__('Pick a sequence')">
+                            @foreach ($campaigns as $campaign)
+                                <flux:select.option wire:key="campaign-{{ $campaign['id'] }}" value="{{ $campaign['id'] }}">{{ $campaign['name'] }}{{ $campaign['active'] ? '' : ' ('.__('paused').')' }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <div class="md:pt-6">
+                            <flux:button icon="arrow-path" wire:click="refreshCampaigns" :aria-label="__('Reload campaigns')" />
+                        </div>
+                    </div>
+                    <flux:switch wire:model="autoPush" :label="__('Send automatically when a lead is qualified')" :description="__('Only leads with an email. Each lead is sent once.')" />
+                    <div class="flex flex-wrap gap-2">
+                        <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
+                        <flux:button icon="paper-airplane" wire:click="pushQualifiedLeads" :disabled="! $outbound->isReady()">{{ __('Send qualified leads now') }}</flux:button>
+                    </div>
+                </form>
+
+                <div class="-mx-5 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/6 px-5 pt-5">
+                    <p class="text-sm text-zinc-400">
+                        <span class="eyebrow mr-2">{{ __('Events webhook') }}</span>
+                        @if ($outbound->webhook_id)
+                            <span class="chip chip-signal">{{ __('Registered') }}</span>
+                        @elseif ($webhookIsLocal)
+                            <span class="text-zinc-500">{{ __('Needs a public APP_URL to receive sends and replies.') }}</span>
+                        @else
+                            <span class="text-zinc-500">{{ __('Not registered') }}</span>
+                            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="registerOutboundWebhook" class="ml-2">{{ __('Register') }}</flux:button>
+                        @endif
+                    </p>
+                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="disconnectOutbound" :wire:confirm="__('Disconnect this connector?')">{{ __('Disconnect') }}</flux:button>
+                </div>
+            @endif
+        </x-ui.panel>
+
         <x-ui.panel eyebrow="04 / {{ __('Outbound') }}" :title="__('Webhooks')">
             <x-slot name="actions"><span class="chip">X-OmniLeads-Signature · HMAC SHA-256</span></x-slot>
 

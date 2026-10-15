@@ -2,15 +2,20 @@
 
 namespace App\Livewire\Projects;
 
+use App\Domains\Outbound\Exceptions\OutboundException;
+use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
 use App\Jobs\MergeDuplicateLeadsJob;
+use App\Jobs\PushLeadsToOutboundJob;
 use App\Listeners\DispatchWebhooks;
+use App\Models\OutboundConnection;
 use App\Models\Project;
 use App\Models\Webhook;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -28,12 +33,135 @@ class Settings extends Component
 
     public ?string $revealedSecret = null;
 
+    public string $connector = 'saleshandy';
+
+    public string $apiKey = '';
+
+    public string $campaignId = '';
+
+    public bool $autoPush = false;
+
+    /** @var list<array{id: string, name: string, active: bool}> */
+    public array $campaigns = [];
+
+    public ?string $campaignsError = null;
+
     public function mount(Project $project): void
     {
         Gate::authorize('update', $project);
 
         $this->project = $project;
         $this->whatsappTemplate = $project->whatsapp_template ?? WhatsAppTemplate::default();
+
+        if ($connection = $project->outboundConnection) {
+            $this->connector = $connection->connector;
+            $this->campaignId = (string) $connection->campaign_id;
+            $this->autoPush = $connection->auto_push;
+            $this->loadCampaigns($connection);
+        }
+    }
+
+    public function connectOutbound(OutboundConnectorResolver $resolver): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->validate([
+            'connector' => ['required', Rule::in(array_keys($resolver->options()))],
+            'apiKey' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $resolver->resolve($this->connector, ['api_key' => trim($this->apiKey)])->verify();
+        } catch (OutboundException $e) {
+            $this->addError('apiKey', __('Could not connect: :reason', ['reason' => $e->getMessage()]));
+
+            return;
+        }
+
+        $connection = $this->project->outboundConnection()->updateOrCreate([], [
+            'connector' => $this->connector,
+            'credentials' => ['api_key' => trim($this->apiKey)],
+            'campaign_id' => null,
+            'campaign_name' => null,
+            'webhook_id' => null,
+            'webhook_secret' => Str::random(40),
+            'last_error' => null,
+        ]);
+
+        $this->reset('apiKey', 'campaignId');
+        $this->project->setRelation('outboundConnection', $connection);
+        $this->loadCampaigns($connection);
+        $this->registerWebhook($connection);
+
+        Flux::toast(variant: 'success', text: __(':connector connected. Now pick the campaign.', ['connector' => $resolver->label($this->connector)]));
+    }
+
+    public function saveOutbound(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $connection = $this->project->outboundConnection()->firstOrFail();
+
+        $this->validate([
+            'campaignId' => ['required', 'string', Rule::in(array_column($this->campaigns, 'id'))],
+            'autoPush' => ['boolean'],
+        ]);
+
+        $campaign = collect($this->campaigns)->firstWhere('id', $this->campaignId);
+
+        $connection->update([
+            'campaign_id' => $this->campaignId,
+            'campaign_name' => $campaign['name'] ?? null,
+            'auto_push' => $this->autoPush,
+        ]);
+
+        Flux::toast(variant: 'success', text: __('Outbound settings saved.'));
+    }
+
+    public function refreshCampaigns(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->loadCampaigns($this->project->outboundConnection()->firstOrFail());
+    }
+
+    public function registerOutboundWebhook(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $connection = $this->project->outboundConnection()->firstOrFail();
+
+        if ($this->registerWebhook($connection)) {
+            Flux::toast(variant: 'success', text: __('Webhook registered.'));
+        }
+    }
+
+    public function pushQualifiedLeads(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $connection = $this->project->outboundConnection()->firstOrFail();
+
+        if (! $connection->isReady()) {
+            Flux::toast(variant: 'danger', text: __('Pick a campaign first.'));
+
+            return;
+        }
+
+        PushLeadsToOutboundJob::dispatch($connection->id);
+
+        Flux::toast(text: __('Qualified leads with an email were queued for sending.'));
+    }
+
+    public function disconnectOutbound(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->project->outboundConnection()->delete();
+        $this->project->unsetRelation('outboundConnection');
+        $this->reset('apiKey', 'campaignId', 'autoPush', 'campaigns', 'campaignsError');
+
+        Flux::toast(text: __('Connector removed. Delete the Omni Leads webhook in the tool too.'));
     }
 
     public function saveTemplate(): void
@@ -109,9 +237,56 @@ class Settings extends Component
         Flux::toast(text: __('Duplicate merge queued.'));
     }
 
-    public function render(): View
+    protected function loadCampaigns(OutboundConnection $connection): void
     {
+        try {
+            $this->campaigns = array_map(fn ($c) => $c->toArray(), $connection->connector()->campaigns());
+            $this->campaignsError = null;
+        } catch (OutboundException $e) {
+            $this->campaigns = [];
+            $this->campaignsError = $e->getMessage();
+        }
+    }
+
+    /** Local URLs are never reachable by the tool, so the webhook is not even attempted. */
+    protected function registerWebhook(OutboundConnection $connection): bool
+    {
+        $url = route('outbound.webhook', [$connection, $connection->webhook_secret]);
+
+        if (self::isLocalUrl($url)) {
+            return false;
+        }
+
+        try {
+            $connection->update(['webhook_id' => $connection->connector()->registerWebhook($url), 'last_error' => null]);
+
+            return true;
+        } catch (OutboundException $e) {
+            $connection->update(['last_error' => $e->getMessage()]);
+            Flux::toast(variant: 'danger', text: __('Could not register the webhook: :reason', ['reason' => $e->getMessage()]));
+
+            return false;
+        }
+    }
+
+    protected static function isLocalUrl(string $url): bool
+    {
+        $host = (string) parse_url($url, PHP_URL_HOST);
+
+        return in_array($host, ['localhost', '127.0.0.1', '[::1]'], true)
+            || str_ends_with($host, '.localhost')
+            || str_ends_with($host, '.test');
+    }
+
+    public function render(OutboundConnectorResolver $resolver): View
+    {
+        $outbound = $this->project->outboundConnection;
+
         return view('livewire.projects.settings', [
+            'outbound' => $outbound,
+            'connectors' => $resolver->options(),
+            'outboundLabel' => $outbound ? $resolver->label($outbound->connector) : null,
+            'webhookIsLocal' => $outbound ? self::isLocalUrl(route('outbound.webhook', [$outbound, $outbound->webhook_secret])) : false,
             'webhooks' => $this->project->webhooks()->latest()->get(),
             'events' => Webhook::labels(),
             'placeholders' => WhatsAppTemplate::PLACEHOLDERS,

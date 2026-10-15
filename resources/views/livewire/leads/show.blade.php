@@ -10,6 +10,13 @@
                 <flux:button icon="chat-bubble-left-right" variant="primary">{{ __('Send WhatsApp') }}</flux:button>
             </flux:modal.trigger>
         @endif
+        @if ($outbound)
+            @if ($outboundSent)
+                <span class="chip chip-signal">{{ __('Sent to :connector', ['connector' => $outboundLabel]) }}</span>
+            @else
+                <flux:button icon="envelope" wire:click="pushToOutbound">{{ __('Send to :connector', ['connector' => $outboundLabel]) }}</flux:button>
+            @endif
+        @endif
         <flux:button icon="sparkles" wire:click="enrich">{{ __('Enrich') }}</flux:button>
         <flux:dropdown>
             <flux:button icon-trailing="chevron-down">{{ __('Change status') }}</flux:button>

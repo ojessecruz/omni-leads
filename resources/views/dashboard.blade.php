@@ -6,7 +6,7 @@
         $leads = \App\Models\Lead::whereHas('project', fn ($q) => $q->where('user_id', $user->id));
         $total = (clone $leads)->count();
         $qualified = (clone $leads)->where('status', \App\Enums\LeadStatus::Qualified)->count();
-        $contacted = (clone $leads)->where('status', \App\Enums\LeadStatus::Contacted)->count();
+        $contacted = (clone $leads)->whereIn('status', [\App\Enums\LeadStatus::Contacted, \App\Enums\LeadStatus::Replied])->count();
         $recent = (clone $leads)->with('icp')->latest()->limit(8)->get();
         $running = \App\Models\SearchJob::whereHas('icp.project', fn ($q) => $q->where('user_id', $user->id))->where('status', \App\Enums\SearchJobStatus::Running)->count();
         $fmt = fn (int $n) => number_format($n, 0, ',', '.');

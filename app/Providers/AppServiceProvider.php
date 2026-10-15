@@ -6,6 +6,7 @@ use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\Enrichment\Clients\SiteScraper;
 use App\Domains\LeadSources\LeadSourceManager;
+use App\Domains\Outbound\OutboundConnectorResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SiteScraper::class, fn () => new SiteScraper(config('enrichment.site_scrape', [])));
         $this->app->bind(HunterClient::class, fn () => new HunterClient(config('enrichment.hunter', [])));
         $this->app->bind(EvolutionClient::class, fn () => new EvolutionClient(config('enrichment.evolution', [])));
+        $this->app->bind(OutboundConnectorResolver::class, fn () => new OutboundConnectorResolver(config('outbound', [])));
     }
 
     /**

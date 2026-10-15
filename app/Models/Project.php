@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -21,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $whatsapp_template
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read OutboundConnection|null $outboundConnection
  */
 #[Fillable(['user_id', 'name', 'product_description', 'problem', 'current_customers', 'avg_ticket', 'whatsapp_template'])]
 class Project extends Model
@@ -50,6 +52,12 @@ class Project extends Model
     public function icpDrafts(): HasMany
     {
         return $this->hasMany(IcpDraft::class);
+    }
+
+    /** @return HasOne<OutboundConnection, $this> */
+    public function outboundConnection(): HasOne
+    {
+        return $this->hasOne(OutboundConnection::class);
     }
 
     /** @return HasMany<Webhook, $this> */
