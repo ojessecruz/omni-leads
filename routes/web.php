@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\LocaleController;
 use App\Livewire\Icps\Show as IcpShow;
 use App\Livewire\Icps\Wizard as IcpWizard;
 use App\Livewire\Leads\Index as LeadsIndex;
@@ -10,6 +11,8 @@ use App\Livewire\Projects\Show as ProjectShow;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
+
+Route::post('locale', LocaleController::class)->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

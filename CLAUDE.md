@@ -59,7 +59,9 @@ Sempre rode `npm`/`composer`/`artisan` via `sail` — `node_modules` é do Linux
 ## i18n
 - Comentários de código (PHP, Blade, CSS, JS, testes) sempre em inglês. Nomes de testes (`test('...')`) ficam em português.
 - Padrão `en`; `pt_BR` e `es` em `lang/{locale}.json` (chaves = texto em inglês via `__()`/`trans_choice`). Validação em `lang/{en,pt_BR,es}/validation.php`.
-- `SetLocale` middleware: `users.locale` > Accept-Language > `Locales::DEFAULT`. Seletor em Settings › Appearance. **Nunca** use `config('app.locale')` como padrão: `app()->setLocale()` sobrescreve.
+- `SetLocale` middleware: `users.locale` > sessão (`Locales::SESSION_KEY`, escolha do visitante) > Accept-Language > `Locales::DEFAULT`. **Nunca** use `config('app.locale')` como padrão: `app()->setLocale()` sobrescreve.
+- Switcher `<x-ui.language-switcher>` (LP, auth e header do app) posta em `locale.update`: logado grava em `users.locale` e limpa a sessão, visitante grava na sessão. É `<details>` + form, sem JS, porque a landing não carrega Alpine/Flux. Settings › Appearance continua como a preferência da conta.
+- Mensagens do framework traduzidas em `lang/{locale}/{validation,auth,passwords}.php`.
 - Países: `Countries::name()`/`options()` seguem o locale (`ALL` pt, `EN`, `ES`). Prompt do Ask AI: `prompts/icp-{locale}.blade.php`.
 - Teste `LocaleTest` falha se alguma chave `__()` não tiver tradução em pt_BR/es — ao criar texto novo, adicione nos dois JSON.
 

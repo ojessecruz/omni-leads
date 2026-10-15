@@ -35,6 +35,7 @@
                     @endforeach
                 </nav>
             </details>
+            <x-ui.language-switcher />
             @auth
                 <a href="{{ route('dashboard') }}" class="btn-signal rounded-full px-4 py-1.5 text-sm font-medium">{{ __('Open app') }}</a>
             @else

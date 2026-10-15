@@ -29,6 +29,8 @@
                 <div class="ml-auto flex items-center gap-2">
                     <a href="{{ route('home') }}" class="font-mono hidden text-2xs uppercase tracking-label text-zinc-500 hover:text-white lg:block">{{ __('Site') }}</a>
 
+                    <x-ui.language-switcher />
+
                     <flux:dropdown position="bottom" align="end">
                         <button type="button" class="flex items-center gap-2 rounded-full border border-white/10 py-1 pl-1 pr-3 text-sm text-zinc-300 transition hover:border-white/30 hover:text-white" data-test="sidebar-menu-button">
                             <span class="font-mono flex size-7 items-center justify-center rounded-full bg-signal text-2xs font-semibold text-ink">{{ auth()->user()->initials() }}</span>
