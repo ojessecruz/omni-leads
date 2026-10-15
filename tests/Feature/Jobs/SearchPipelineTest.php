@@ -4,6 +4,7 @@ use App\Domains\Leads\LeadUpserter;
 use App\Domains\LeadSources\Drivers\GooglePlaces\GooglePlacesDriver;
 use App\Domains\LeadSources\LeadSourceManager;
 use App\Enums\IcpStatus;
+use App\Enums\IntegrationProvider;
 use App\Enums\SearchJobStatus;
 use App\Jobs\DispatchIcpSearchJob;
 use App\Jobs\EnrichLeadJob;
@@ -14,12 +15,25 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
-    config()->set('lead-sources.drivers.google_places', ['enabled' => true, 'key' => 'test-key', 'max_pages' => 3, 'requests_per_second' => 100]);
+    config()->set('lead-sources.drivers.google_places', ['byok' => true, 'max_pages' => 3, 'requests_per_second' => 100]);
 });
+
+function icpWithPlacesKey(array $attributes = []): Icp
+{
+    $icp = Icp::factory()->create($attributes);
+    connectIntegration($icp->project->user, IntegrationProvider::GooglePlaces, ['key' => 'test-key']);
+
+    return $icp;
+}
+
+function searchJobWithPlacesKey(array $attributes = []): SearchJob
+{
+    return SearchJob::factory()->for(icpWithPlacesKey())->create($attributes);
+}
 
 test('DispatchIcpSearchJob cria um search_job por driver compatível e ativa o ICP', function () {
     Queue::fake([SourceSearchJob::class]);
-    $icp = Icp::factory()->create();
+    $icp = icpWithPlacesKey();
 
     (new DispatchIcpSearchJob($icp->id))->handle(app(LeadSourceManager::class));
 
@@ -36,7 +50,7 @@ test('DispatchIcpSearchJob cria um search_job por driver compatível e ativa o I
 
 test('ICP sem keywords não gera search_job', function () {
     Queue::fake();
-    $icp = Icp::factory()->create(['criteria' => ['keywords' => [], 'countries' => ['BR']]]);
+    $icp = icpWithPlacesKey(['criteria' => ['keywords' => [], 'countries' => ['BR']]]);
 
     (new DispatchIcpSearchJob($icp->id))->handle(app(LeadSourceManager::class));
 
@@ -44,12 +58,21 @@ test('ICP sem keywords não gera search_job', function () {
     Queue::assertNothingPushed();
 });
 
+test('sem a chave do Google Places na conta nenhuma busca é criada', function () {
+    Queue::fake();
+    $icp = Icp::factory()->create();
+
+    (new DispatchIcpSearchJob($icp->id))->handle(app(LeadSourceManager::class));
+
+    expect($icp->searchJobs()->count())->toBe(0);
+});
+
 test('SourceSearchJob busca, faz upsert, enfileira enriquecimento e marca done', function () {
     Queue::fake([EnrichLeadJob::class]);
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['places' => [
         placePayload('p1'), placePayload('p2', ['websiteUri' => 'https://www.spa-p1.com.br']), // p2 collides with p1 on the domain
     ]])]);
-    $searchJob = SearchJob::factory()->create();
+    $searchJob = searchJobWithPlacesKey();
 
     (new SourceSearchJob($searchJob->id))->handle(app(LeadSourceManager::class), app(LeadUpserter::class));
 
@@ -67,7 +90,7 @@ test('SourceSearchJob busca, faz upsert, enfileira enriquecimento e marca done',
 
 test('SourceSearchJob é idempotente: ignora job que não está pendente', function () {
     Http::fake();
-    $searchJob = SearchJob::factory()->create(['status' => SearchJobStatus::Done]);
+    $searchJob = searchJobWithPlacesKey(['status' => SearchJobStatus::Done]);
 
     (new SourceSearchJob($searchJob->id))->handle(app(LeadSourceManager::class), app(LeadUpserter::class));
 
@@ -76,7 +99,7 @@ test('SourceSearchJob é idempotente: ignora job que não está pendente', funct
 
 test('SourceSearchJob marca failed com a mensagem de erro', function () {
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['error' => ['message' => 'quota exceeded']], 429)]);
-    $searchJob = SearchJob::factory()->create();
+    $searchJob = searchJobWithPlacesKey();
 
     expect(fn () => (new SourceSearchJob($searchJob->id))->handle(app(LeadSourceManager::class), app(LeadUpserter::class)))
         ->toThrow(RuntimeException::class);

@@ -10,6 +10,10 @@
         </flux:button>
     </x-ui.page-header>
 
+    @if ($needsPlacesKey)
+        <x-integrations.missing-places-key class="mb-6" />
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12" data-reveal>
         <x-ui.panel class="lg:col-span-12" :eyebrow="__('Context')" :title="__('Product')">
             <dl class="kv grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domains\Outbound\Contracts\OutboundConnector;
 use App\Domains\Outbound\OutboundConnectorResolver;
+use App\Enums\IntegrationProvider;
 use Database\Factories\OutboundConnectionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -16,7 +17,6 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $project_id
  * @property string $connector
- * @property array<string, mixed> $credentials
  * @property string|null $campaign_id
  * @property string|null $campaign_name
  * @property bool $auto_push
@@ -27,8 +27,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Project $project
  */
-#[Fillable(['project_id', 'connector', 'credentials', 'campaign_id', 'campaign_name', 'auto_push', 'webhook_id', 'webhook_secret', 'last_error'])]
-#[Hidden(['credentials', 'webhook_secret'])]
+#[Fillable(['project_id', 'connector', 'campaign_id', 'campaign_name', 'auto_push', 'webhook_id', 'webhook_secret', 'last_error'])]
+#[Hidden(['webhook_secret'])]
 class OutboundConnection extends Model
 {
     /** @use HasFactory<OutboundConnectionFactory> */
@@ -37,7 +37,6 @@ class OutboundConnection extends Model
     protected function casts(): array
     {
         return [
-            'credentials' => 'encrypted:array',
             'webhook_secret' => 'encrypted',
             'auto_push' => 'boolean',
         ];
@@ -49,21 +48,18 @@ class OutboundConnection extends Model
         return $this->belongsTo(Project::class);
     }
 
+    /** Built with the project owner's key from Settings > Integrations. */
     public function connector(): OutboundConnector
     {
-        return app(OutboundConnectorResolver::class)->resolve($this->connector, $this->credentials);
+        $provider = IntegrationProvider::from($this->connector);
+
+        return app(OutboundConnectorResolver::class)->resolve($this->connector, $this->project->user->credentialsFor($provider));
     }
 
     /** lead_sources.driver for leads pushed through this connector. */
     public function sourceDriver(): string
     {
         return 'outbound_'.$this->connector;
-    }
-
-    /** "••••a1b2", enough to tell keys apart without showing them. */
-    public function maskedKey(): string
-    {
-        return '••••'.mb_substr((string) ($this->credentials['api_key'] ?? ''), -4);
     }
 
     public function isReady(): bool

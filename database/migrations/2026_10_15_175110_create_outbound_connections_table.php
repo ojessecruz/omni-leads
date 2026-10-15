@@ -8,12 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // One cold-mail connector per project; the key is the customer's own (BYOK).
+        // One cold-mail connector per project; the key lives in the owner's integrations (BYOK).
         Schema::create('outbound_connections', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('connector');
-            $table->text('credentials');
             $table->string('campaign_id')->nullable();
             $table->string('campaign_name')->nullable();
             $table->boolean('auto_push')->default(false);

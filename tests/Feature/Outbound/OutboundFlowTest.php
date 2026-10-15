@@ -3,6 +3,7 @@
 use App\Domains\Leads\LeadScorer;
 use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Jobs\PushLeadsToOutboundJob;
@@ -10,6 +11,7 @@ use App\Jobs\RecordOutboundEventJob;
 use App\Livewire\Leads\Show;
 use App\Livewire\Projects\Settings;
 use App\Models\Icp;
+use App\Models\Integration;
 use App\Models\Lead;
 use App\Models\OutboundConnection;
 use App\Models\Project;
@@ -28,16 +30,22 @@ function shSequences(): array
     return ['payload' => [['id' => 'SEQ1', 'title' => 'Clínicas SP', 'active' => true, 'steps' => [['id' => 'STEP1', 'name' => 'Step 1']]]]];
 }
 
-test('conectar valida a chave na ferramenta, guarda criptografada e carrega as campanhas', function () {
-    Http::fake([SH_API.'/sequences*' => Http::response(shSequences())]);
+function projectWithSaleshandyKey(): Project
+{
     $project = Project::factory()->create();
+    Integration::factory()->for($project->user)->provider(IntegrationProvider::Saleshandy, ['key' => 'sh-secret-key'])->create();
+
+    return $project;
+}
+
+test('escolher o conector usa a chave da conta e carrega as campanhas', function () {
+    Http::fake([SH_API.'/sequences*' => Http::response(shSequences())]);
+    $project = projectWithSaleshandyKey();
 
     Livewire::actingAs($project->user)->test(Settings::class, ['project' => $project])
+        ->assertSet('connector', '')
         ->set('connector', 'saleshandy')
-        ->set('apiKey', 'sh-secret-key')
-        ->call('connectOutbound')
         ->assertHasNoErrors()
-        ->assertSet('apiKey', '')
         ->assertSet('campaigns', [['id' => 'SEQ1', 'name' => 'Clínicas SP', 'active' => true]])
         ->set('campaignId', 'SEQ1')
         ->set('autoPush', true)
@@ -46,9 +54,8 @@ test('conectar valida a chave na ferramenta, guarda criptografada e carrega as c
 
     $connection = $project->outboundConnection()->first();
 
-    expect($connection->credentials['api_key'])->toBe('sh-secret-key')
-        ->and(DB::table('outbound_connections')->value('credentials'))->not->toContain('sh-secret-key')
-        ->and($connection->campaign_name)->toBe('Clínicas SP')
+    Http::assertSent(fn (Request $r) => $r->hasHeader('x-api-key', 'sh-secret-key'));
+    expect($connection->campaign_name)->toBe('Clínicas SP')
         ->and($connection->auto_push)->toBeTrue()
         // APP_URL is local in tests: the webhook is not even attempted
         ->and($connection->webhook_id)->toBeNull();
@@ -56,16 +63,18 @@ test('conectar valida a chave na ferramenta, guarda criptografada e carrega as c
     Http::assertNotSent(fn (Request $r) => str_contains($r->url(), '/webhook/create'));
 });
 
-test('chave recusada não salva conexão e mostra o erro no campo', function () {
-    Http::fake([SH_API.'/*' => Http::response(['message' => 'Unauthorized'], 401)]);
+test('sem chave do Saleshandy na conta o conector não é escolhido', function () {
+    Http::fake();
     $project = Project::factory()->create();
 
     Livewire::actingAs($project->user)->test(Settings::class, ['project' => $project])
-        ->set('apiKey', 'errada')
-        ->call('connectOutbound')
-        ->assertHasErrors('apiKey');
+        ->assertSee('Saleshandy (no API key)')
+        ->set('connector', 'saleshandy')
+        ->assertHasErrors('connector')
+        ->assertSet('connector', '');
 
     expect($project->outboundConnection()->exists())->toBeFalse();
+    Http::assertNothingSent();
 });
 
 test('com APP_URL público, conectar registra o webhook com o segredo na URL', function () {
@@ -76,11 +85,10 @@ test('com APP_URL público, conectar registra o webhook com o segredo na URL', f
         SH_API.'/webhook/create' => Http::response(['payload' => ['id' => 'WH1']], 201),
         SH_API.'/sequences*' => Http::response(shSequences()),
     ]);
-    $project = Project::factory()->create();
+    $project = projectWithSaleshandyKey();
 
     Livewire::actingAs($project->user)->test(Settings::class, ['project' => $project])
-        ->set('apiKey', 'sh-key')
-        ->call('connectOutbound');
+        ->set('connector', 'saleshandy');
 
     $connection = $project->outboundConnection()->first();
 
@@ -101,12 +109,13 @@ test('campanha precisa ser uma das carregadas e outro usuário não acessa', fun
     Livewire::actingAs(User::factory()->create())->test(Settings::class, ['project' => $connection->project])->assertForbidden();
 });
 
-test('desconectar remove a conexão', function () {
+test('escolher "Nenhum" remove a conexão', function () {
     Http::fake([SH_API.'/sequences*' => Http::response(shSequences())]);
     $connection = OutboundConnection::factory()->create();
 
     Livewire::actingAs($connection->project->user)->test(Settings::class, ['project' => $connection->project])
-        ->call('disconnectOutbound');
+        ->assertSet('connector', 'saleshandy')
+        ->set('connector', '');
 
     expect(OutboundConnection::count())->toBe(0);
 });

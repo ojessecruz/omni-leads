@@ -14,7 +14,7 @@ const SH = 'https://open-api.saleshandy.com/v1';
 function saleshandy(): SaleshandyConnector
 {
     /** @var SaleshandyConnector */
-    return app(OutboundConnectorResolver::class)->resolve('saleshandy', ['api_key' => 'sh-key']);
+    return app(OutboundConnectorResolver::class)->resolve('saleshandy', ['key' => 'sh-key']);
 }
 
 function sequencesResponse(): array
@@ -29,7 +29,7 @@ test('resolver devolve o conector pela chave e recusa conector desconhecido', fu
     expect(saleshandy())->toBeInstanceOf(SaleshandyConnector::class)
         ->and(saleshandy()->key())->toBe('saleshandy');
 
-    app(OutboundConnectorResolver::class)->resolve('mailchimp', ['api_key' => 'x']);
+    app(OutboundConnectorResolver::class)->resolve('mailchimp', ['key' => 'x']);
 })->throws(OutboundException::class, 'Unknown outbound connector');
 
 test('verify envia a chave no header e traduz 401 em erro de chave', function () {

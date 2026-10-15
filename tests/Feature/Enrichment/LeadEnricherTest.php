@@ -2,6 +2,7 @@
 
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\Enrichment\LeadEnricher;
+use App\Enums\IntegrationProvider;
 use App\Jobs\EnrichLeadJob;
 use App\Jobs\ScoreLeadJob;
 use App\Models\Icp;
@@ -17,10 +18,22 @@ beforeEach(function () {
     config()->set('enrichment', [
         'ttl_days' => 30,
         'site_scrape' => ['enabled' => true, 'timeout' => 5, 'paths' => ['/', '/contato']],
-        'hunter' => ['enabled' => true, 'key' => 'hk', 'requests_per_minute' => 100],
-        'evolution' => ['enabled' => true, 'base_url' => 'https://evo.test', 'instance' => 'main', 'key' => 'ek', 'requests_per_minute' => 100],
+        'hunter' => ['requests_per_minute' => 100],
+        'evolution' => ['requests_per_minute' => 100],
     ]);
 });
+
+/** Lead whose project owner connected Hunter and Evolution, unless told otherwise. */
+function enrichableLead(array $attributes = [], array $providers = [IntegrationProvider::Hunter, IntegrationProvider::Evolution], ?Icp $icp = null): Lead
+{
+    $lead = Lead::factory()->for($icp ?? Icp::factory())->create($attributes);
+
+    foreach ($providers as $provider) {
+        connectIntegration($lead->project->user, $provider);
+    }
+
+    return $lead;
+}
 
 test('scrape do site acha mailto e telefone e não chama o Hunter', function () {
     Http::fake([
@@ -28,7 +41,7 @@ test('scrape do site acha mailto e telefone e não chama o Hunter', function () 
         'https://evo.test/*' => Http::response([['jid' => '5511987654321@s.whatsapp.net', 'exists' => true, 'number' => '5511987654321']]),
     ]);
 
-    $lead = Lead::factory()->create(['domain' => 'spa.com.br', 'phone' => null, 'email' => null]);
+    $lead = enrichableLead(['domain' => 'spa.com.br', 'phone' => null, 'email' => null]);
 
     $ran = app(LeadEnricher::class)->enrich($lead);
 
@@ -55,7 +68,7 @@ test('sem e-mail no site cai no Hunter e prioriza cargo do ICP', function () {
     ]);
 
     $icp = Icp::factory()->create(['criteria' => ['keywords' => ['spa'], 'countries' => ['BR'], 'job_titles' => ['owner']]]);
-    $lead = Lead::factory()->for($icp)->create(['domain' => 'spa.com.br', 'phone' => null, 'email' => null]);
+    $lead = enrichableLead(['domain' => 'spa.com.br', 'phone' => null, 'email' => null], icp: $icp);
 
     app(LeadEnricher::class)->enrich($lead);
 
@@ -70,7 +83,7 @@ test('falha em um passo não bloqueia os outros e fica registrada', function () 
         'https://evo.test/*' => Http::response([['exists' => false]]),
     ]);
 
-    $lead = Lead::factory()->create(['domain' => 'spa.com.br', 'phone' => '5511999990000', 'email' => null]);
+    $lead = enrichableLead(['domain' => 'spa.com.br', 'phone' => '5511999990000', 'email' => null]);
 
     $ran = app(LeadEnricher::class)->enrich($lead);
 
@@ -81,24 +94,36 @@ test('falha em um passo não bloqueia os outros e fica registrada', function () 
 
 test('site inacessível registra erro e segue', function () {
     Http::fake(['*' => fn () => throw new ConnectionException('timeout')]);
-    config()->set('enrichment.hunter.enabled', false);
-    config()->set('enrichment.evolution.enabled', false);
-
-    $lead = Lead::factory()->create(['domain' => 'off.com.br', 'email' => null]);
+    $lead = enrichableLead(['domain' => 'off.com.br', 'email' => null], providers: []);
 
     app(LeadEnricher::class)->enrich($lead);
 
     expect($lead->sources()->where('driver', 'site_scrape')->first()->raw_payload['error'])->toBe('site unreachable');
 });
 
-test('passos desabilitados ou sem dado são pulados', function () {
+test('passos sem dado são pulados', function () {
     Http::fake();
-    config()->set('enrichment.hunter.enabled', false);
 
-    $lead = Lead::factory()->create(['domain' => null, 'phone' => null, 'email' => null]);
+    $lead = enrichableLead(['domain' => null, 'phone' => null, 'email' => null]);
 
     expect(app(LeadEnricher::class)->enrich($lead))->toBe([]);
     Http::assertNothingSent();
+});
+
+test('Hunter e Evolution só rodam com a chave do dono do projeto, que vai na requisição', function () {
+    Http::fake([
+        'https://spa.com.br/*' => Http::response('<html>nada</html>', 200, ['Content-Type' => 'text/html']),
+        HunterClient::ENDPOINT.'*' => Http::response(['data' => ['emails' => []]]),
+    ]);
+
+    $without = enrichableLead(['domain' => 'spa.com.br', 'phone' => '5511999990000', 'email' => null], providers: []);
+    expect(app(LeadEnricher::class)->enrich($without))->toBe(['site_scrape']);
+
+    $with = enrichableLead(['domain' => 'spa.com.br', 'phone' => null, 'email' => null], providers: []);
+    connectIntegration($with->project->user, IntegrationProvider::Hunter, ['key' => 'hunter-do-dono']);
+    expect(app(LeadEnricher::class)->enrich($with))->toBe(['site_scrape', 'hunter']);
+
+    Http::assertSent(fn ($req) => str_contains($req->url(), 'hunter.io') && $req['api_key'] === 'hunter-do-dono');
 });
 
 test('EnrichLeadJob respeita o TTL e sempre dispara o score', function () {
@@ -117,19 +142,15 @@ test('EnrichLeadJob respeita o TTL e sempre dispara o score', function () {
     Http::assertSent(fn ($req) => str_contains($req->url(), 'spa.com.br'));
 });
 
-test('limiter de enriquecimento usa o menor RPM dos clientes habilitados e é livre só com site scrape', function () {
-    config()->set('enrichment.hunter', ['enabled' => true, 'key' => 'k', 'requests_per_minute' => 15]);
-    config()->set('enrichment.evolution', ['enabled' => true, 'base_url' => 'https://evo.test', 'instance' => 'i', 'key' => 'k', 'requests_per_minute' => 60]);
+test('limiter de enriquecimento usa o menor RPM dos clientes do dono e é livre só com site scrape', function () {
+    config()->set('enrichment.hunter.requests_per_minute', 15);
+    config()->set('enrichment.evolution.requests_per_minute', 60);
 
     $limiter = RateLimiter::limiter('enrichment');
-    $job = new EnrichLeadJob(1);
+    $both = new EnrichLeadJob(enrichableLead()->id);
 
-    expect($limiter($job)->maxAttempts)->toBe(15)
-        ->and(collect($job->middleware())->first())->toBeInstanceOf(RateLimited::class);
-
-    config()->set('enrichment.hunter.enabled', false);
-    expect($limiter($job)->maxAttempts)->toBe(60);
-
-    config()->set('enrichment.evolution.enabled', false);
-    expect($limiter($job))->toBeInstanceOf(Unlimited::class);
+    expect($limiter($both)->maxAttempts)->toBe(15)
+        ->and(collect($both->middleware())->first())->toBeInstanceOf(RateLimited::class)
+        ->and($limiter(new EnrichLeadJob(enrichableLead(providers: [IntegrationProvider::Evolution])->id))->maxAttempts)->toBe(60)
+        ->and($limiter(new EnrichLeadJob(enrichableLead(providers: [])->id)))->toBeInstanceOf(Unlimited::class);
 });

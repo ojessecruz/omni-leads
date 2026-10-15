@@ -6,6 +6,7 @@ use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\LeadSources\Contracts\LeadSourceDriver;
 use App\Domains\LeadSources\Contracts\QueryMapper;
 use App\Domains\LeadSources\Contracts\TracksRequests;
+use App\Domains\LeadSources\Contracts\VerifiesCredentials;
 use App\Domains\LeadSources\Data\LeadDTO;
 use App\Support\Countries;
 use Generator;
@@ -19,9 +20,11 @@ use RuntimeException;
  *
  * @see https://docs.apollo.io/reference/people-search
  */
-class ApolloDriver implements LeadSourceDriver, TracksRequests
+class ApolloDriver implements LeadSourceDriver, TracksRequests, VerifiesCredentials
 {
     public const string ENDPOINT = 'https://api.apollo.io/api/v1/mixed_people/search';
+
+    public const string HEALTH_ENDPOINT = 'https://api.apollo.io/v1/auth/health';
 
     private int $requests = 0;
 
@@ -140,12 +143,22 @@ class ApolloDriver implements LeadSourceDriver, TracksRequests
         );
     }
 
+    /** Free call: Apollo answers is_logged_in=false for a wrong key. */
+    public function verify(): void
+    {
+        $response = Http::withHeaders(['x-api-key' => $this->key()])->acceptJson()->connectTimeout(3)->timeout(10)->get(self::HEALTH_ENDPOINT);
+
+        if ($response->failed() || $response->json('is_logged_in') !== true) {
+            throw new RuntimeException(sprintf('Apollo responded %d: %s', $response->status(), $response->json('error', 'invalid API key')));
+        }
+    }
+
     private function key(): string
     {
         $key = $this->config['key'] ?? null;
 
         if (blank($key)) {
-            throw new RuntimeException('APOLLO_KEY is not configured.');
+            throw new RuntimeException('Apollo API key is not configured.');
         }
 
         return $key;
@@ -155,7 +168,7 @@ class ApolloDriver implements LeadSourceDriver, TracksRequests
     {
         $rpm = max(1, (int) ($this->config['requests_per_minute'] ?? 50));
 
-        while (! RateLimiter::attempt('lead-source:apollo', $rpm, fn () => true, 60)) {
+        while (! RateLimiter::attempt('lead-source:apollo:'.md5($this->key()), $rpm, fn () => true, 60)) {
             usleep(250_000);
         }
     }

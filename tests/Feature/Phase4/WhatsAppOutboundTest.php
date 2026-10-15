@@ -2,6 +2,7 @@
 
 use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Jobs\DeliverWebhookJob;
 use App\Jobs\SendWhatsAppJob;
@@ -15,8 +16,16 @@ use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    config()->set('enrichment.evolution', ['enabled' => true, 'base_url' => 'https://evo.test', 'instance' => 'main', 'key' => 'ek', 'requests_per_minute' => 100]);
+    config()->set('enrichment.evolution.requests_per_minute', 100);
 });
+
+/** The owner's Evolution: https://evo.test, instance "main", key "ek" (factory defaults). */
+function withEvolution(Lead $lead): Lead
+{
+    connectIntegration($lead->project->user, IntegrationProvider::Evolution);
+
+    return $lead;
+}
 
 test('template renderiza placeholders com fallbacks', function () {
     $lead = Lead::factory()->make(['name' => 'Ana Paula Silva', 'company_name' => 'Spa Ana', 'city' => 'Moema', 'domain' => 'spaana.com.br']);
@@ -37,7 +46,7 @@ test('SendWhatsAppJob envia pelo Evolution, registra fonte, marca contatado e di
 
     $project = Project::factory()->create();
     Webhook::factory()->for($project)->create(['events' => ['lead.contacted']]);
-    $lead = Lead::factory()->for(Icp::factory()->for($project))->create(['phone' => '5511999990000', 'status' => LeadStatus::Qualified]);
+    $lead = withEvolution(Lead::factory()->for(Icp::factory()->for($project))->create(['phone' => '5511999990000', 'status' => LeadStatus::Qualified]));
 
     (new SendWhatsAppJob($lead->id, 'Olá!', 'd-1'))->handle(app(EvolutionClient::class));
 
@@ -55,7 +64,7 @@ test('SendWhatsAppJob envia pelo Evolution, registra fonte, marca contatado e di
 test('SendWhatsAppJob não reenvia a mesma entrega', function () {
     Queue::fake([DeliverWebhookJob::class]);
     Http::fake(['https://evo.test/message/sendText/main' => Http::response(['key' => ['id' => 'MSG1']])]);
-    $lead = Lead::factory()->create(['phone' => '5511999990000']);
+    $lead = withEvolution(Lead::factory()->create(['phone' => '5511999990000']));
 
     $job = new SendWhatsAppJob($lead->id, 'Olá!', 'd-1');
     $job->handle(app(EvolutionClient::class));
@@ -69,7 +78,7 @@ test('SendWhatsAppJob não reenvia a mesma entrega', function () {
 test('SendWhatsAppJob registra o erro quando o envio falha e não marca contatado', function () {
     Queue::fake([DeliverWebhookJob::class]);
     Http::fake(['https://evo.test/message/sendText/main' => Http::response('down', 503)]);
-    $other = Lead::factory()->create(['phone' => '5511999990001']);
+    $other = withEvolution(Lead::factory()->create(['phone' => '5511999990001']));
     $failing = new SendWhatsAppJob($other->id, 'Oi', 'd-2');
 
     expect(fn () => $failing->handle(app(EvolutionClient::class)))->toThrow(Exception::class);
@@ -85,7 +94,11 @@ test('detalhe do lead mostra o botão só com Evolution configurado e enfileira 
     Queue::fake();
     $lead = Lead::factory()->create(['phone' => '5511999990000', 'name' => 'Ana Silva']);
 
-    Livewire::actingAs($lead->project->user)->test(Show::class, ['lead' => $lead])
+    Livewire::actingAs($lead->project->user)->test(Show::class, ['lead' => $lead])->assertDontSee('Send WhatsApp');
+
+    withEvolution($lead);
+
+    Livewire::actingAs($lead->project->user)->test(Show::class, ['lead' => $lead->fresh()])
         ->assertSee('Send WhatsApp')
         ->assertSet('whatsappText', WhatsAppTemplate::render(null, $lead))
         ->set('whatsappText', 'Oi Ana')
@@ -94,6 +107,4 @@ test('detalhe do lead mostra o botão só com Evolution configurado e enfileira 
 
     Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $lead->id && $j->text === 'Oi Ana');
 
-    config()->set('enrichment.evolution.enabled', false);
-    Livewire::actingAs($lead->project->user)->test(Show::class, ['lead' => $lead])->assertDontSee('Send WhatsApp');
 });

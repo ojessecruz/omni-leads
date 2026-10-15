@@ -5,9 +5,11 @@ namespace App\Livewire\Icps;
 use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\Icp\Exceptions\IcpParseException;
 use App\Domains\Icp\IcpJsonParser;
+use App\Domains\LeadSources\LeadSourceManager;
 use App\Enums\CompanySize;
 use App\Enums\IcpDraftMode;
 use App\Enums\IcpStatus;
+use App\Enums\IntegrationProvider;
 use App\Jobs\DispatchIcpSearchJob;
 use App\Models\Icp;
 use App\Models\IcpDraft;
@@ -270,9 +272,10 @@ class Wizard extends Component
         ]);
     }
 
-    public function render(): View
+    public function render(LeadSourceManager $sources): View
     {
         $askAi = $this->isAskAi();
+        $owner = $this->project->user;
 
         return view('livewire.icps.wizard', [
             'countries' => Countries::options(),
@@ -281,6 +284,8 @@ class Wizard extends Component
             'steps' => $this->steps(),
             'prompt' => $askAi && $this->step === 3 ? $this->prompt() : null,
             'criteria' => $this->step === self::LAST_STEP ? $this->criteria() : null,
+            'sourceCount' => count($sources->withCredentials($owner->integrationCredentials())->enabledDrivers()),
+            'needsPlacesKey' => ! $owner->hasIntegration(IntegrationProvider::GooglePlaces),
         ]);
     }
 

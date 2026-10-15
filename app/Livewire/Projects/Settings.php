@@ -6,6 +6,7 @@ use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Enums\IntegrationProvider;
 use App\Jobs\MergeDuplicateLeadsJob;
 use App\Jobs\PushLeadsToOutboundJob;
 use App\Listeners\DispatchWebhooks;
@@ -38,9 +39,8 @@ class Settings extends Component
 
     public string $emailBody = '';
 
-    public string $connector = 'saleshandy';
-
-    public string $apiKey = '';
+    /** '' = no connector. The key itself lives in the owner's integrations. */
+    public string $connector = '';
 
     public string $campaignId = '';
 
@@ -68,26 +68,29 @@ class Settings extends Component
         }
     }
 
-    public function connectOutbound(OutboundConnectorResolver $resolver): void
+    public function updatedConnector(): void
     {
         Gate::authorize('update', $this->project);
 
-        $this->validate([
-            'connector' => ['required', Rule::in(array_keys($resolver->options()))],
-            'apiKey' => ['required', 'string', 'max:255'],
-        ]);
+        $resolver = app(OutboundConnectorResolver::class);
 
-        try {
-            $resolver->resolve($this->connector, ['api_key' => trim($this->apiKey)])->verify();
-        } catch (OutboundException $e) {
-            $this->addError('apiKey', __('Could not connect: :reason', ['reason' => $e->getMessage()]));
+        $this->validate(['connector' => ['nullable', Rule::in(array_keys($resolver->options()))]]);
+
+        if ($this->connector === '') {
+            $this->disconnectOutbound();
+
+            return;
+        }
+
+        if (! $this->project->user->hasIntegration(IntegrationProvider::from($this->connector))) {
+            $this->addError('connector', __('Add your :connector API key in Settings > Integrations first.', ['connector' => $resolver->label($this->connector)]));
+            $this->connector = (string) $this->project->outboundConnection?->connector;
 
             return;
         }
 
         $connection = $this->project->outboundConnection()->updateOrCreate([], [
             'connector' => $this->connector,
-            'credentials' => ['api_key' => trim($this->apiKey)],
             'campaign_id' => null,
             'campaign_name' => null,
             'webhook_id' => null,
@@ -95,7 +98,7 @@ class Settings extends Component
             'last_error' => null,
         ]);
 
-        $this->reset('apiKey', 'campaignId');
+        $this->reset('campaignId');
         $this->project->setRelation('outboundConnection', $connection);
         $this->loadCampaigns($connection);
         $this->registerWebhook($connection);
@@ -160,13 +163,11 @@ class Settings extends Component
         Flux::toast(text: __('Qualified leads with an email were queued for sending.'));
     }
 
-    public function disconnectOutbound(): void
+    protected function disconnectOutbound(): void
     {
-        Gate::authorize('update', $this->project);
-
         $this->project->outboundConnection()->delete();
         $this->project->unsetRelation('outboundConnection');
-        $this->reset('apiKey', 'campaignId', 'autoPush', 'campaigns', 'campaignsError');
+        $this->reset('connector', 'campaignId', 'autoPush', 'campaigns', 'campaignsError');
 
         Flux::toast(text: __('Connector removed. Delete the Omni Leads webhook in the tool too.'));
     }
@@ -306,6 +307,7 @@ class Settings extends Component
         return view('livewire.projects.settings', [
             'outbound' => $outbound,
             'connectors' => $resolver->options(),
+            'connectorKeys' => array_filter(array_keys($resolver->options()), fn (string $c) => $this->project->user->hasIntegration(IntegrationProvider::from($c))),
             'outboundLabel' => $outbound ? $resolver->label($outbound->connector) : null,
             'messageTags' => $outbound ? $resolver->resolve($outbound->connector, [])->messageTags() : null,
             'webhookIsLocal' => $outbound ? self::isLocalUrl(route('outbound.webhook', [$outbound, $outbound->webhook_secret])) : false,

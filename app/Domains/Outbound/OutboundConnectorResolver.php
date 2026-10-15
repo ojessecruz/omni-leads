@@ -7,9 +7,9 @@ use App\Domains\Outbound\Contracts\OutboundConnector;
 use App\Domains\Outbound\Exceptions\OutboundException;
 
 /**
- * Picks the connector strategy a project chose and builds it with that project's
- * key. Not a Laravel Manager: instances are never cached, since every project
- * brings its own credentials.
+ * Picks the connector strategy a project chose and builds it with the owner's
+ * key (Settings > Integrations). Not a Laravel Manager: instances are never
+ * cached, since every user brings their own credentials.
  */
 class OutboundConnectorResolver
 {
@@ -21,11 +21,11 @@ class OutboundConnectorResolver
     /** @param  array<string, mixed>  $config  config('outbound') */
     public function __construct(private array $config) {}
 
-    /** @param  array<string, mixed>  $credentials */
+    /** @param  array<string, mixed>  $credentials  the user's integration credentials ('key') */
     public function resolve(string $connector, array $credentials): OutboundConnector
     {
         $config = $this->config['connectors'][$connector] ?? [];
-        $apiKey = (string) ($credentials['api_key'] ?? '');
+        $apiKey = (string) ($credentials['key'] ?? '');
 
         return match ($connector) {
             'saleshandy' => new SaleshandyConnector($config, $apiKey),

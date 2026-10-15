@@ -24,7 +24,7 @@ class EnrichLeadJob implements ShouldQueue
     }
 
     /**
-     * Throttled by the lowest RPM among the enabled paid clients (`enrichment` limiter in AppServiceProvider):
+     * Throttled by the lowest RPM among the owner's connected paid clients (`enrichment` limiter in AppServiceProvider):
      * the job goes back to the queue instead of sleeping in the worker until the window opens.
      *
      * @return list<object>

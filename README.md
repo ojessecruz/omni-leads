@@ -66,16 +66,17 @@ Sempre rode `npm`, `composer` e `artisan` através do `sail`: o `node_modules` �
 
 ## Fontes e chaves
 
-Tudo é ligado por `.env`. Só o Google Places vem habilitado por padrão.
+As chaves de API são BYOK: cada usuário cadastra as suas em **Configurações › Integrações**. A chave é verificada no provedor antes de salvar, fica criptografada e vale para todos os projetos do usuário. Um provedor fica ligado quando o dono do projeto tem a chave. Só o Google Places é obrigatório, porque sem ele a busca não roda. As fontes sem chave continuam no `.env`.
 
-| Fonte | Variáveis | Custo |
+| Fonte | Onde liga | Custo |
 | --- | --- | --- |
-| Google Places | `GOOGLE_PLACES_ENABLED`, `GOOGLE_PLACES_KEY` | ~US$ 35 / 1000 requisições (Enterprise SKU) |
-| Apollo.io | `APOLLO_ENABLED`, `APOLLO_KEY` | créditos só no desbloqueio de e-mail |
+| Google Places (obrigatório) | Integrações | ~US$ 35 / 1000 requisições (Enterprise SKU) |
+| Apollo.io | Integrações | créditos só no desbloqueio de e-mail |
 | Receita Federal (`cnpj_br`) | `CNPJ_BR_ENABLED` + importação abaixo | grátis |
 | Scrape do site | `SITE_SCRAPE_ENABLED` | grátis |
-| Hunter.io | `HUNTER_ENABLED`, `HUNTER_KEY` | 1 crédito por domain search |
-| Evolution API | `EVOLUTION_ENABLED`, `EVOLUTION_BASE_URL`, `EVOLUTION_INSTANCE`, `EVOLUTION_API_KEY` | conforme sua instância |
+| Hunter.io | Integrações | 1 crédito por domain search |
+| Evolution API | Integrações (URL do servidor, instância e chave) | conforme sua instância |
+| Saleshandy (cold email) | Integrações; o projeto escolhe o conector em Configurações | conforme seu plano |
 
 Para a base da Receita, baixe os CSVs em https://dadosabertos.rfb.gov.br/CNPJ/ e importe nesta ordem:
 

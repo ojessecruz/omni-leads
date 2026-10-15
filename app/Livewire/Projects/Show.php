@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Projects;
 
+use App\Enums\IntegrationProvider;
 use App\Models\IcpDraft;
 use App\Models\Project;
 use Illuminate\Contracts\View\View;
@@ -31,7 +32,11 @@ class Show extends Component
             ->where('user_id', auth()->id())
             ->first();
 
-        return view('livewire.projects.show', ['icps' => $icps, 'draft' => $draft])
+        return view('livewire.projects.show', [
+            'icps' => $icps,
+            'draft' => $draft,
+            'needsPlacesKey' => ! $this->project->user->hasIntegration(IntegrationProvider::GooglePlaces),
+        ])
             ->title($this->project->name);
     }
 }

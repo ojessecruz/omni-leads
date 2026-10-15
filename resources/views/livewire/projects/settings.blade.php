@@ -10,24 +10,25 @@
     <div class="space-y-6" data-reveal>
         <x-ui.panel :eyebrow="__('Outbound')" :title="__('Cold email')">
             @if ($outbound)
-                <x-slot name="actions"><span class="chip chip-signal">{{ $outboundLabel }} · {{ $outbound->maskedKey() }}</span></x-slot>
+                <x-slot name="actions"><span class="chip chip-signal">{{ $outboundLabel }}</span></x-slot>
             @endif
 
             <p class="text-sm text-zinc-400">{{ __('Qualified leads with an email go to a sequence in your cold email tool, using your own API key. Sends, replies and bounces come back to the lead.') }}</p>
 
+            <div class="mt-6 max-w-xs">
+                <flux:select wire:model.live="connector" :label="__('Connector')">
+                    <flux:select.option value="">{{ __('None') }}</flux:select.option>
+                    @foreach ($connectors as $key => $label)
+                        <flux:select.option wire:key="connector-{{ $key }}" value="{{ $key }}" :disabled="! in_array($key, $connectorKeys, true)">{{ in_array($key, $connectorKeys, true) ? $label : __(':connector (no API key)', ['connector' => $label]) }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
             @if (! $outbound)
-                <form wire:submit="connectOutbound" class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-[12rem_1fr_auto]">
-                    <flux:select wire:model="connector" :label="__('Connector')">
-                        @foreach ($connectors as $key => $label)
-                            <flux:select.option wire:key="connector-{{ $key }}" value="{{ $key }}">{{ $label }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                    <flux:input wire:model="apiKey" type="password" :label="__('API key')" class="font-mono" autocomplete="off" />
-                    <div class="md:pt-6">
-                        <flux:button type="submit" variant="primary" icon="link">{{ __('Connect') }}</flux:button>
-                    </div>
-                </form>
-                <p class="mt-3 text-xs text-zinc-500">{{ __('The key is checked against the tool before saving and stored encrypted.') }}</p>
+                <p class="mt-3 text-xs text-zinc-500">
+                    {{ __('Connector API keys are added once in your account and shared by all your projects.') }}
+                    <a href="{{ route('integrations.edit') }}" wire:navigate class="text-signal hover:underline">{{ __('Manage integrations') }} →</a>
+                </p>
             @else
                 @if ($outbound->last_error)
                     <div class="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
@@ -69,7 +70,6 @@
                             <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="registerOutboundWebhook" class="ml-2">{{ __('Register') }}</flux:button>
                         @endif
                     </p>
-                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="disconnectOutbound" :wire:confirm="__('Disconnect this connector?')">{{ __('Disconnect') }}</flux:button>
                 </div>
             @endif
         </x-ui.panel>

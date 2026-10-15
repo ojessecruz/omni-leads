@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\IntegrationProvider;
+use App\Models\Integration;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -25,4 +28,17 @@ function placePayload(string $id, array $extra = []): array
         'rating' => 4.6,
         'userRatingCount' => 42,
     ], $extra);
+}
+
+/**
+ * Connects a provider on the user's account (BYOK), as Settings > Integrations would.
+ *
+ * @param  array<string, string>|null  $credentials
+ */
+function connectIntegration(User $user, IntegrationProvider $provider, ?array $credentials = null): Integration
+{
+    $integration = Integration::factory()->for($user)->provider($provider, $credentials)->create();
+    $user->unsetRelation('integrations');
+
+    return $integration;
 }

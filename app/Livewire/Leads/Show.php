@@ -2,10 +2,10 @@
 
 namespace App\Livewire\Leads;
 
-use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Leads\LeadScorer;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Jobs\EnrichLeadJob;
@@ -105,7 +105,7 @@ class Show extends Component
             'outboundSent' => $outbound !== null && $sources->contains(fn ($s) => $s->driver === $outbound->sourceDriver() && isset($s->raw_payload['pushed_at'])),
             'statuses' => LeadStatus::cases(),
             'scoring' => $scorer->evaluate($this->lead),
-            'canWhatsApp' => (bool) config('enrichment.evolution.enabled') && app(EvolutionClient::class)->isConfigured() && $this->lead->phone,
+            'canWhatsApp' => $this->lead->phone && $this->lead->project->user->hasIntegration(IntegrationProvider::Evolution),
         ])->title($this->lead->displayName());
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Domains\Enrichment\Clients\EvolutionClient;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Models\Lead;
@@ -45,7 +46,7 @@ class SendWhatsAppJob implements ShouldQueue
             return;
         }
 
-        $response = $evolution->sendText($lead->phone, $this->text);
+        $response = $evolution->withCredentials($lead->project->user->credentialsFor(IntegrationProvider::Evolution))->sendText($lead->phone, $this->text);
 
         $source->update([
             'raw_payload' => [

@@ -17,6 +17,32 @@ class EvolutionClient
     /** @param  array<string, mixed>  $config */
     public function __construct(private array $config) {}
 
+    /** @param  array<string, string>  $credentials  the user's server, instance and key (BYOK) */
+    public function withCredentials(array $credentials): self
+    {
+        if (isset($credentials['base_url'])) {
+            $credentials['base_url'] = rtrim($credentials['base_url'], '/');
+        }
+
+        return new self([...$this->config, ...$credentials]);
+    }
+
+    /** GET {base}/instance/connectionState/{instance}: fails on a wrong URL, instance or key. */
+    public function verify(): void
+    {
+        $this->assertConfigured();
+
+        $response = Http::acceptJson()
+            ->withHeaders(['apikey' => $this->config['key']])
+            ->connectTimeout(3)
+            ->timeout(10)
+            ->get($this->config['base_url'].'/instance/connectionState/'.$this->config['instance']);
+
+        if ($response->failed()) {
+            throw new RuntimeException(sprintf('Evolution responded %d: %s', $response->status(), $response->json('response.message.0', $response->json('message', $response->body()))));
+        }
+    }
+
     public function enrich(Lead $lead): ?EnrichmentResult
     {
         if (! $lead->phone) {
@@ -85,7 +111,7 @@ class EvolutionClient
     private function assertConfigured(): void
     {
         if (! $this->isConfigured()) {
-            throw new RuntimeException('Evolution API is not configured (EVOLUTION_BASE_URL, EVOLUTION_INSTANCE, EVOLUTION_API_KEY).');
+            throw new RuntimeException('Evolution API is not configured (server URL, instance and API key).');
         }
     }
 
@@ -93,7 +119,7 @@ class EvolutionClient
     {
         $rpm = max(1, (int) ($this->config['requests_per_minute'] ?? 60));
 
-        while (! RateLimiter::attempt('enrichment:evolution', $rpm, fn () => true, 60)) {
+        while (! RateLimiter::attempt('enrichment:evolution:'.md5((string) $this->config['key']), $rpm, fn () => true, 60)) {
             usleep(250_000);
         }
     }
