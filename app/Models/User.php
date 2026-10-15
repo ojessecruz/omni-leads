@@ -77,14 +77,23 @@ class User extends Authenticatable implements PasskeyUser
         return $this->hasMany(Integration::class);
     }
 
+    public function integration(IntegrationProvider $provider): ?Integration
+    {
+        return $this->integrations->first(fn (Integration $i) => $i->provider === $provider);
+    }
+
     /**
-     * The user's keys for every connected provider, as clients read them.
+     * The user's keys for every usable provider, as clients read them
+     * (an Evolution server without a paired phone is left out).
      *
      * @return array<string, array<string, string>> provider value => credentials
      */
     public function integrationCredentials(): array
     {
-        return $this->integrations->mapWithKeys(fn (Integration $i) => [$i->provider->value => $i->credentials])->all();
+        return $this->integrations
+            ->filter(fn (Integration $i) => $i->provider->isUsable($i->credentials))
+            ->mapWithKeys(fn (Integration $i) => [$i->provider->value => $i->credentials])
+            ->all();
     }
 
     /** @return array<string, string> empty when the provider is not connected */

@@ -48,24 +48,97 @@ test('chave recusada não é salva e o erro aparece no campo', function () {
     expect($user->integrations()->count())->toBe(0);
 });
 
-test('Evolution pede servidor, instância e chave; chave em branco mantém a salva', function () {
-    Http::fake(['https://evo.test/instance/connectionState/*' => Http::response(['instance' => ['state' => 'open']])]);
+test('Evolution pede só servidor e chave global; chave em branco mantém a salva', function () {
+    Http::fake(['https://evo.test/instance/fetchInstances' => Http::response([])]);
     $user = User::factory()->create();
 
     Livewire::actingAs($user)->test(Integrations::class)
         ->set('form.evolution.base_url', 'https://evo.test/')
         ->call('save', 'evolution')
-        ->assertHasErrors(['form.evolution.instance', 'form.evolution.key'])
-        ->set('form.evolution.instance', 'main')
-        ->set('form.evolution.key', 'ek')
+        ->assertHasErrors(['form.evolution.key'])
+        ->set('form.evolution.key', 'global-key')
         ->call('save', 'evolution')
         ->assertHasNoErrors()
-        ->set('form.evolution.instance', 'outra')
+        ->assertSee('Connect phone')
+        ->set('form.evolution.base_url', 'https://evo.test')
         ->call('save', 'evolution')
         ->assertHasNoErrors();
 
-    Http::assertSent(fn (Request $r) => $r->url() === 'https://evo.test/instance/connectionState/main' && $r->hasHeader('apikey', 'ek'));
-    expect($user->fresh()->credentialsFor(IntegrationProvider::Evolution))->toBe(['base_url' => 'https://evo.test/', 'instance' => 'outra', 'key' => 'ek']);
+    Http::assertSent(fn (Request $r) => $r->url() === 'https://evo.test/instance/fetchInstances' && $r->hasHeader('apikey', 'global-key'));
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['base_url' => 'https://evo.test', 'key' => 'global-key'])
+        // without a paired phone, WhatsApp is not usable yet
+        ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeFalse();
+});
+
+test('conectar celular cria a instância, mostra o QR e marca pareado quando o estado fica open', function () {
+    Http::fake([
+        'https://evo.test/instance/create' => Http::response(['instance' => ['instanceName' => 'x', 'status' => 'connecting'], 'hash' => 'T', 'qrcode' => ['base64' => 'data:image/png;base64,QR1']], 201),
+        'https://evo.test/instance/connectionState/*' => Http::sequence()
+            ->push(['instance' => ['state' => 'connecting']])
+            ->push(['instance' => ['state' => 'open']]),
+        'https://evo.test/instance/fetchInstances*' => Http::response([['name' => 'x', 'ownerJid' => '5511988887777@s.whatsapp.net']]),
+    ]);
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution, ['base_url' => 'https://evo.test', 'key' => 'global-key']);
+
+    $page = Livewire::actingAs($user)->test(Integrations::class)
+        ->call('connectPhone')
+        ->assertSet('whatsappQr', 'data:image/png;base64,QR1')
+        ->assertSeeHtml('wire:poll.3s="checkPhone"')
+        ->call('checkPhone')
+        ->assertSet('whatsappQr', 'data:image/png;base64,QR1');
+
+    expect($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeFalse();
+
+    $page->call('checkPhone')
+        ->assertSet('whatsappQr', null)
+        ->assertSee('WhatsApp connected · +5511988887777');
+
+    $credentials = $user->fresh()->integration(IntegrationProvider::Evolution)->credentials;
+    expect($credentials['instance'])->toStartWith("omnileads-{$user->id}-")
+        ->and($credentials['phone'])->toBe('5511988887777')
+        ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeTrue();
+
+    Http::assertSent(fn (Request $r) => $r->url() === 'https://evo.test/instance/create'
+        && $r['instanceName'] === $credentials['instance'] && $r['qrcode'] === true && $r['integration'] === 'WHATSAPP-BAILEYS' && $r->hasHeader('apikey', 'global-key'));
+});
+
+test('desconectar celular faz logout e mantém a instância para parear de novo', function () {
+    Http::fake(['https://evo.test/instance/logout/main' => Http::response(['status' => 'SUCCESS'])]);
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
+
+    Livewire::actingAs($user)->test(Integrations::class)
+        ->call('disconnectPhone')
+        ->assertSee('Connect phone');
+
+    Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && $r->url() === 'https://evo.test/instance/logout/main');
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['base_url' => 'https://evo.test', 'key' => 'ek', 'instance' => 'main'])
+        ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeFalse();
+});
+
+test('trocar o servidor do Evolution descarta o celular pareado no servidor antigo', function () {
+    Http::fake(['https://novo.test/instance/fetchInstances' => Http::response([])]);
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
+
+    Livewire::actingAs($user)->test(Integrations::class)
+        ->set('form.evolution.base_url', 'https://novo.test')
+        ->call('save', 'evolution')
+        ->assertHasNoErrors();
+
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['base_url' => 'https://novo.test', 'key' => 'ek']);
+});
+
+test('remover o Evolution apaga a instância no servidor', function () {
+    Http::fake(['https://evo.test/instance/delete/main' => Http::response(['status' => 'SUCCESS'])]);
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
+
+    Livewire::actingAs($user)->test(Integrations::class)->call('remove', 'evolution');
+
+    Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && $r->url() === 'https://evo.test/instance/delete/main');
+    expect($user->integrations()->count())->toBe(0);
 });
 
 test('remover a chave do Saleshandy desliga o conector dos projetos do usuário', function () {

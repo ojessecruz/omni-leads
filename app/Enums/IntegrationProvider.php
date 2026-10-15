@@ -61,11 +61,23 @@ enum IntegrationProvider: string
         return match ($this) {
             self::Evolution => [
                 'base_url' => ['label' => __('Server URL'), 'secret' => false],
-                'instance' => ['label' => __('Instance'), 'secret' => false],
-                'key' => ['label' => __('API key'), 'secret' => true],
+                'key' => ['label' => __('Global API key'), 'secret' => true],
             ],
             default => ['key' => ['label' => __('API key'), 'secret' => true]],
         };
+    }
+
+    /**
+     * Whether saved credentials are enough to use the provider. Evolution also needs
+     * the phone paired by QR code, which adds 'instance' and 'connected_at'.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function isUsable(array $credentials): bool
+    {
+        $needed = $this === self::Evolution ? ['base_url', 'key', 'instance', 'connected_at'] : ['key'];
+
+        return array_all($needed, fn (string $field) => filled($credentials[$field] ?? null));
     }
 
     public function docsUrl(): string

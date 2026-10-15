@@ -522,8 +522,20 @@
     "Lead sources": "Fontes de leads",
     "Enrichment": "Enriquecimento",
     "Server URL": "URL do servidor",
-    "Instance": "Instância",
     "Add your :connector API key in Settings > Integrations first.": "Cadastre antes a sua chave de API do :connector em Configurações > Integrações.",
     ":provider connected.": ":provider conectado.",
-    ":provider disconnected.": ":provider desconectado."
+    ":provider disconnected.": ":provider desconectado.",
+    "Global API key": "Chave de API global",
+    "Evolution server connected. Now connect your phone.": "Servidor Evolution conectado. Agora conecte o seu celular.",
+    "WhatsApp connected.": "WhatsApp conectado.",
+    "WhatsApp connected": "WhatsApp conectado",
+    "Could not disconnect: :reason": "Não foi possível desconectar: :reason",
+    "WhatsApp disconnected.": "WhatsApp desconectado.",
+    "Disconnect this phone? Sending and WhatsApp checks stop until you pair again.": "Desconectar este celular? O envio e a verificação de WhatsApp param até você parear de novo.",
+    "Disconnect phone": "Desconectar celular",
+    "WhatsApp QR code": "QR code do WhatsApp",
+    "On your phone, open WhatsApp › Linked devices › Link a device and scan the code.": "No celular, abra o WhatsApp › Aparelhos conectados › Conectar um aparelho e escaneie o código.",
+    "Waiting for the scan… the code renews by itself.": "Aguardando a leitura… o código se renova sozinho.",
+    "Pair the phone that will check numbers and send the messages.": "Pareie o celular que vai verificar os números e enviar as mensagens.",
+    "Connect phone": "Conectar celular"
 }

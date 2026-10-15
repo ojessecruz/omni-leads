@@ -75,7 +75,7 @@ As chaves de API são BYOK: cada usuário cadastra as suas em **Configurações 
 | Receita Federal (`cnpj_br`) | `CNPJ_BR_ENABLED` + importação abaixo | grátis |
 | Scrape do site | `SITE_SCRAPE_ENABLED` | grátis |
 | Hunter.io | Integrações | 1 crédito por domain search |
-| Evolution API | Integrações (URL do servidor, instância e chave) | conforme sua instância |
+| Evolution API | Integrações (URL do servidor e chave global; depois "Conectar celular" pelo QR code) | conforme sua instância |
 | Saleshandy (cold email) | Integrações; o projeto escolhe o conector em Configurações | conforme seu plano |
 
 Para a base da Receita, baixe os CSVs em https://dadosabertos.rfb.gov.br/CNPJ/ e importe nesta ordem:

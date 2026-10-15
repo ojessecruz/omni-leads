@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Domains\Integrations\Exceptions\IntegrationException;
 use App\Domains\Integrations\IntegrationVerifier;
+use App\Domains\Integrations\WhatsAppPairing;
 use App\Enums\IntegrationProvider;
 use App\Models\Integration;
 use App\Models\OutboundConnection;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use RuntimeException;
 
 #[Title('Integrations')]
 class Integrations extends Component
@@ -25,13 +27,20 @@ class Integrations extends Component
      */
     public array $form = [];
 
+    /** QR code being shown while the user pairs their phone with Evolution. */
+    public ?string $whatsappQr = null;
+
+    public int $pairingPolls = 0;
+
     public function mount(): void
     {
-        $saved = Auth::user()->integrationCredentials();
+        $user = Auth::user();
 
         foreach (IntegrationProvider::cases() as $provider) {
+            $saved = $user->integration($provider)->credentials ?? [];
+
             foreach ($provider->fields() as $name => $field) {
-                $this->form[$provider->value][$name] = $field['secret'] ? '' : (string) ($saved[$provider->value][$name] ?? '');
+                $this->form[$provider->value][$name] = $field['secret'] ? '' : (string) ($saved[$name] ?? '');
             }
         }
     }
@@ -40,11 +49,11 @@ class Integrations extends Component
     {
         $provider = $this->provider($provider);
         $user = Auth::user();
-        $current = $user->credentialsFor($provider);
+        $current = $user->integration($provider)->credentials ?? [];
 
         $rules = [];
         foreach ($provider->fields() as $name => $field) {
-            // Blank secret on a connected provider keeps the saved key (e.g. only the instance changed).
+            // Blank secret on a connected provider keeps the saved key (e.g. only the server URL changed).
             $keepsSecret = $field['secret'] && filled($current[$name] ?? null);
             $rules["form.{$provider->value}.{$name}"] = [$keepsSecret ? 'nullable' : 'required', 'string', 'max:500', ...($name === 'base_url' ? ['url:http,https'] : [])];
         }
@@ -54,6 +63,12 @@ class Integrations extends Component
         foreach (array_keys($provider->fields()) as $name) {
             $value = trim($this->form[$provider->value][$name] ?? '');
             $credentials[$name] = $value !== '' ? $value : (string) ($current[$name] ?? '');
+        }
+
+        // The paired phone lives on that server: keep it only while the server stays the same.
+        $sameServer = $provider === IntegrationProvider::Evolution && rtrim($current['base_url'] ?? '', '/') === rtrim($credentials['base_url'], '/');
+        if ($sameServer) {
+            $credentials += array_diff_key($current, $provider->fields());
         }
 
         try {
@@ -74,13 +89,95 @@ class Integrations extends Component
             }
         }
 
-        Flux::toast(variant: 'success', text: __(':provider connected.', ['provider' => $provider->label()]));
+        Flux::toast(variant: 'success', text: $provider === IntegrationProvider::Evolution && ! $provider->isUsable($credentials)
+            ? __('Evolution server connected. Now connect your phone.')
+            : __(':provider connected.', ['provider' => $provider->label()]));
     }
 
-    public function remove(string $provider): void
+    public function connectPhone(WhatsAppPairing $pairing): void
+    {
+        $integration = Auth::user()->integration(IntegrationProvider::Evolution);
+
+        if ($integration === null) {
+            return;
+        }
+
+        try {
+            $this->whatsappQr = $pairing->start($integration);
+        } catch (RuntimeException $e) {
+            Flux::toast(variant: 'danger', text: __('Could not connect: :reason', ['reason' => $e->getMessage()]));
+
+            return;
+        }
+
+        $this->pairingPolls = 0;
+
+        if ($this->whatsappQr === null && $integration->provider->isUsable($integration->credentials)) {
+            Flux::toast(variant: 'success', text: __('WhatsApp connected.'));
+        }
+    }
+
+    /** Polled every 3s while the QR code is on screen; the QR is renewed every ~30s. */
+    public function checkPhone(WhatsAppPairing $pairing): void
+    {
+        $integration = Auth::user()->integration(IntegrationProvider::Evolution);
+
+        if ($integration === null || $this->whatsappQr === null) {
+            $this->whatsappQr = null;
+
+            return;
+        }
+
+        try {
+            if ($pairing->check($integration)) {
+                $this->whatsappQr = null;
+                Flux::toast(variant: 'success', text: __('WhatsApp connected.'));
+
+                return;
+            }
+
+            if (++$this->pairingPolls % 10 === 0) {
+                $this->whatsappQr = $pairing->refresh($integration) ?? $this->whatsappQr;
+            }
+        } catch (RuntimeException $e) {
+            $this->whatsappQr = null;
+            Flux::toast(variant: 'danger', text: __('Could not connect: :reason', ['reason' => $e->getMessage()]));
+        }
+    }
+
+    public function cancelPairing(): void
+    {
+        $this->whatsappQr = null;
+    }
+
+    public function disconnectPhone(WhatsAppPairing $pairing): void
+    {
+        $integration = Auth::user()->integration(IntegrationProvider::Evolution);
+
+        if ($integration === null) {
+            return;
+        }
+
+        try {
+            $pairing->unpair($integration);
+        } catch (RuntimeException $e) {
+            Flux::toast(variant: 'danger', text: __('Could not disconnect: :reason', ['reason' => $e->getMessage()]));
+
+            return;
+        }
+
+        Flux::toast(text: __('WhatsApp disconnected.'));
+    }
+
+    public function remove(string $provider, WhatsAppPairing $pairing): void
     {
         $provider = $this->provider($provider);
         $user = Auth::user();
+
+        if ($provider === IntegrationProvider::Evolution && ($integration = $user->integration($provider))) {
+            $pairing->forget($integration);
+            $this->whatsappQr = null;
+        }
 
         $user->integrations()->where('provider', $provider)->delete();
         $user->unsetRelation('integrations');
@@ -110,6 +207,7 @@ class Integrations extends Component
         return view('livewire.settings.integrations', [
             'groups' => collect(IntegrationProvider::cases())->groupBy(fn (IntegrationProvider $p) => $p->group()),
             'connected' => Auth::user()->integrations->keyBy(fn (Integration $i) => $i->provider->value),
+            'whatsapp' => Auth::user()->integration(IntegrationProvider::Evolution)?->credentials,
         ]);
     }
 }

@@ -27,7 +27,7 @@ class IntegrationFactory extends Factory
         return $this->state(fn () => [
             'provider' => $provider,
             'credentials' => $credentials ?? match ($provider) {
-                IntegrationProvider::Evolution => ['base_url' => 'https://evo.test', 'instance' => 'main', 'key' => 'ek'],
+                IntegrationProvider::Evolution => ['base_url' => 'https://evo.test', 'key' => 'ek', 'instance' => 'main', 'connected_at' => now()->toIso8601String()],
                 default => ['key' => 'test-'.Str::random(16)],
             },
         ]);

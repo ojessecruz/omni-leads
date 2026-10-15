@@ -51,6 +51,10 @@
                                         <flux:button size="sm" type="submit" variant="primary">{{ $integration ? __('Update') : __('Connect') }}</flux:button>
                                     </div>
                                 </div>
+
+                                @if ($provider === \App\Enums\IntegrationProvider::Evolution && $integration)
+                                    @include('livewire.settings.partials.whatsapp-pairing')
+                                @endif
                             </form>
                         @endforeach
                     </div>
