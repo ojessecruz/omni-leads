@@ -70,9 +70,15 @@
                 {{ __('Describe who you sell to. Omni Leads turns it into searches across Google Places, Apollo and public registries, enriches every business with email and WhatsApp, and scores them against your ICP.') }}
             </p>
             <div class="mt-10 flex flex-wrap items-center gap-3">
-                <a href="{{ Route::has('register') ? route('register') : route('login') }}" class="btn-signal rounded-full px-6 py-3 text-sm font-medium">{{ __('Start free') }}</a>
+                @if (Route::has('register'))
+                    <a href="{{ route('register') }}" class="btn-signal rounded-full px-6 py-3 text-sm font-medium">{{ __('Start free') }}</a>
+                @else
+                    <a href="{{ route('login') }}" class="btn-signal rounded-full px-6 py-3 text-sm font-medium">{{ __('Log in') }}</a>
+                @endif
                 <a href="#how" class="rounded-full border border-white/15 px-6 py-3 text-sm text-zinc-200 hover:border-white/40">{{ __('See how it works') }}</a>
-                <span class="font-mono ml-2 text-xs text-zinc-500">{{ __('No credit card. Bring your own API keys.') }}</span>
+                @if (Route::has('register'))
+                    <span class="font-mono ml-2 text-xs text-zinc-500">{{ __('No credit card. Bring your own API keys.') }}</span>
+                @endif
             </div>
         </div>
 
@@ -276,8 +282,12 @@
     <div class="mx-auto max-w-7xl px-5 text-center" data-reveal>
         <h2 class="display text-[14vw] font-semibold text-white sm:text-7xl md:text-8xl lg:text-[8rem]">{{ __('Stop scraping.') }}<br><span class="serif-it text-zinc-400">{{ __('Start selecting.') }}</span></h2>
         <div class="mt-12 flex flex-wrap items-center justify-center gap-3">
-            <a href="{{ Route::has('register') ? route('register') : route('login') }}" class="btn-signal rounded-full px-8 py-3.5 text-sm font-medium">{{ __('Start free') }}</a>
-            <a href="{{ route('login') }}" class="rounded-full border border-white/15 px-8 py-3.5 text-sm text-zinc-200 hover:border-white/40">{{ __('Log in') }}</a>
+            @if (Route::has('register'))
+                <a href="{{ route('register') }}" class="btn-signal rounded-full px-8 py-3.5 text-sm font-medium">{{ __('Start free') }}</a>
+                <a href="{{ route('login') }}" class="rounded-full border border-white/15 px-8 py-3.5 text-sm text-zinc-200 hover:border-white/40">{{ __('Log in') }}</a>
+            @else
+                <a href="{{ route('login') }}" class="btn-signal rounded-full px-8 py-3.5 text-sm font-medium">{{ __('Log in') }}</a>
+            @endif
         </div>
     </div>
 </section>
