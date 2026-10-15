@@ -16,8 +16,33 @@ class HunterClient
 {
     public const string ENDPOINT = 'https://api.hunter.io/v2/domain-search';
 
+    public const string ACCOUNT_ENDPOINT = 'https://api.hunter.io/v2/account';
+
     /** @param  array<string, mixed>  $config */
     public function __construct(private array $config) {}
+
+    /** @param  array<string, string>  $credentials  the user's key (BYOK) */
+    public function withCredentials(array $credentials): self
+    {
+        return new self([...$this->config, ...$credentials]);
+    }
+
+    public function isConfigured(): bool
+    {
+        return filled($this->config['key'] ?? null);
+    }
+
+    /** Free call: fails when Hunter rejects the key. */
+    public function verify(): void
+    {
+        $this->assertConfigured();
+
+        $response = Http::acceptJson()->connectTimeout(3)->timeout(10)->get(self::ACCOUNT_ENDPOINT, ['api_key' => $this->config['key']]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(sprintf('Hunter responded %d: %s', $response->status(), $response->json('errors.0.details', $response->body())));
+        }
+    }
 
     /** @param  list<string>  $jobTitles  ICP job titles used to prioritize the contact */
     public function enrich(Lead $lead, array $jobTitles = []): ?EnrichmentResult
@@ -26,10 +51,7 @@ class HunterClient
             return null;
         }
 
-        if (blank($this->config['key'] ?? null)) {
-            throw new RuntimeException('HUNTER_KEY is not configured.');
-        }
-
+        $this->assertConfigured();
         $this->throttle();
 
         $response = Http::acceptJson()->connectTimeout(3)->timeout(15)->retry(2, 500, throw: false)->get(self::ENDPOINT, [
@@ -66,11 +88,18 @@ class HunterClient
         );
     }
 
+    private function assertConfigured(): void
+    {
+        if (! $this->isConfigured()) {
+            throw new RuntimeException('Hunter API key is not configured.');
+        }
+    }
+
     private function throttle(): void
     {
         $rpm = max(1, (int) ($this->config['requests_per_minute'] ?? 15));
 
-        while (! RateLimiter::attempt('enrichment:hunter', $rpm, fn () => true, 60)) {
+        while (! RateLimiter::attempt('enrichment:hunter:'.md5((string) $this->config['key']), $rpm, fn () => true, 60)) {
             usleep(250_000);
         }
     }

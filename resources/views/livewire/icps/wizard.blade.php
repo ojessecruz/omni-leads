@@ -167,8 +167,11 @@
             @php($places = count($criteria->regions) + count($criteria->areas))
             @php($queries = count($criteria->keywords) * max(1, $places ?: count($criteria->countries)))
             <div class="font-mono rounded-xl border border-signal/30 bg-signal/6 px-4 py-3 text-xs leading-5 text-zinc-300">
-                <span class="text-signal">→</span> {!! trans_choice('The search will run <strong>:count</strong> Google Places query (up to 60 results each)|The search will run <strong>:count</strong> Google Places queries (up to 60 results each)', $queries) !!}{{ count(app(\App\Domains\LeadSources\LeadSourceManager::class)->enabledDrivers()) > 1 ? __(', plus the other enabled sources') : '' }}.
+                <span class="text-signal">→</span> {!! trans_choice('The search will run <strong>:count</strong> Google Places query (up to 60 results each)|The search will run <strong>:count</strong> Google Places queries (up to 60 results each)', $queries) !!}{{ $sourceCount > 1 ? __(', plus the other enabled sources') : '' }}.
             </div>
+            @if ($needsPlacesKey)
+                <x-integrations.missing-places-key />
+            @endif
         @endif
 
         <div class="flex flex-wrap items-center justify-between gap-2 border-t border-white/6 pt-6">

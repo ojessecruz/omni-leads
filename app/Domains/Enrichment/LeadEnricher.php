@@ -6,6 +6,7 @@ use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\Enrichment\Clients\SiteScraper;
 use App\Domains\Enrichment\Data\EnrichmentResult;
+use App\Enums\IntegrationProvider;
 use App\Events\LeadEnriched;
 use App\Models\Lead;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,7 @@ use Throwable;
  *   3. Evolution API (has a phone)
  *
  * Each step records a lead_source for auditing. A failing step does not block the others.
+ * Paid steps run only when the project owner connected that provider (BYOK).
  *
  * @return list<string> steps that ran
  */
@@ -35,17 +37,20 @@ class LeadEnricher
         $ran = [];
         $config = config('enrichment');
         $jobTitles = $lead->icp->criteria_object->jobTitles;
+        $owner = $lead->project->user;
+        $hunter = $this->hunter->withCredentials($owner->credentialsFor(IntegrationProvider::Hunter));
+        $evolution = $this->evolution->withCredentials($owner->credentialsFor(IntegrationProvider::Evolution));
 
         if (($config['site_scrape']['enabled'] ?? false) && $lead->domain && ! $lead->email) {
             $ran[] = $this->run($lead, 'site_scrape', fn () => $this->siteScraper->enrich($lead));
         }
 
-        if (($config['hunter']['enabled'] ?? false) && $lead->domain && ! $lead->email) {
-            $ran[] = $this->run($lead, 'hunter', fn () => $this->hunter->enrich($lead, $jobTitles));
+        if ($hunter->isConfigured() && $lead->domain && ! $lead->email) {
+            $ran[] = $this->run($lead, 'hunter', fn () => $hunter->enrich($lead, $jobTitles));
         }
 
-        if (($config['evolution']['enabled'] ?? false) && $lead->phone && $lead->whatsapp_valid === null) {
-            $ran[] = $this->run($lead, 'evolution', fn () => $this->evolution->enrich($lead));
+        if ($evolution->isConfigured() && $lead->phone && $lead->whatsapp_valid === null) {
+            $ran[] = $this->run($lead, 'evolution', fn () => $evolution->enrich($lead));
         }
 
         $lead->forceFill(['enriched_at' => now()])->save();

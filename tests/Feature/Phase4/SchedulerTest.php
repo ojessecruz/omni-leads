@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\LeadSources\LeadSourceManager;
+use App\Enums\IntegrationProvider;
 use App\Enums\SearchJobStatus;
 use App\Jobs\DispatchIcpSearchJob;
 use App\Livewire\Icps\Show;
@@ -27,8 +28,8 @@ test('icps:rerun-due enfileira só ICPs ativos, vencidos e sem busca em andament
 
 test('DispatchIcpSearchJob agenda a próxima execução', function () {
     Queue::fake();
-    config()->set('lead-sources.drivers.google_places', ['enabled' => true, 'key' => 'k']);
     $icp = Icp::factory()->create(['rerun_every_days' => 14]);
+    connectIntegration($icp->project->user, IntegrationProvider::GooglePlaces);
 
     (new DispatchIcpSearchJob($icp->id))->handle(app(LeadSourceManager::class));
 

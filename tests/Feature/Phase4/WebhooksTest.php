@@ -4,6 +4,7 @@ use App\Domains\Leads\LeadScorer;
 use App\Domains\Leads\LeadUpserter;
 use App\Domains\LeadSources\Drivers\GooglePlaces\GooglePlacesDriver;
 use App\Domains\LeadSources\LeadSourceManager;
+use App\Enums\IntegrationProvider;
 use App\Jobs\DeliverWebhookJob;
 use App\Jobs\EnrichLeadJob;
 use App\Jobs\MergeDuplicateLeadsJob;
@@ -54,10 +55,11 @@ test('marcar contatado em massa dispara lead.contacted', function () {
 
 test('busca concluída dispara search.finished com o resumo', function () {
     Queue::fake([DeliverWebhookJob::class, EnrichLeadJob::class, MergeDuplicateLeadsJob::class]);
-    config()->set('lead-sources.drivers.google_places', ['enabled' => true, 'key' => 'k', 'max_pages' => 1, 'requests_per_second' => 100]);
+    config()->set('lead-sources.drivers.google_places', ['byok' => true, 'max_pages' => 1, 'requests_per_second' => 100]);
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['places' => [placePayload('p1')]])]);
 
     $job = SearchJob::factory()->create();
+    connectIntegration($job->icp->project->user, IntegrationProvider::GooglePlaces);
     Webhook::factory()->for($job->icp->project)->create(['events' => ['search.finished']]);
 
     (new SourceSearchJob($job->id))->handle(app(LeadSourceManager::class), app(LeadUpserter::class));

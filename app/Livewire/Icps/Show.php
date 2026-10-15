@@ -105,8 +105,8 @@ class Show extends Component
 
         /** @var object{discovered: int, enriched: int, qualified: int, contacted: int} $totals */
         $totals = $leads()->selectRaw(
-            'count(*) as discovered, count(enriched_at) as enriched, count(*) filter (where status = ?) as qualified, count(*) filter (where status = ?) as contacted',
-            [LeadStatus::Qualified->value, LeadStatus::Contacted->value],
+            'count(*) as discovered, count(enriched_at) as enriched, count(*) filter (where status = ?) as qualified, count(*) filter (where status in (?, ?)) as contacted',
+            [LeadStatus::Qualified->value, LeadStatus::Contacted->value, LeadStatus::Replied->value],
         )->toBase()->first();
 
         $funnel = [

@@ -7,6 +7,10 @@ use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\Enrichment\Clients\SiteScraper;
 use App\Domains\Icp\Clients\PlaceLookupClient;
 use App\Domains\LeadSources\LeadSourceManager;
+use App\Domains\Outbound\OutboundConnectorResolver;
+use App\Enums\IntegrationProvider;
+use App\Jobs\EnrichLeadJob;
+use App\Models\Lead;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SiteScraper::class, fn () => new SiteScraper(config('enrichment.site_scrape', [])));
         $this->app->bind(HunterClient::class, fn () => new HunterClient(config('enrichment.hunter', [])));
         $this->app->bind(EvolutionClient::class, fn () => new EvolutionClient(config('enrichment.evolution', [])));
+        $this->app->bind(OutboundConnectorResolver::class, fn () => new OutboundConnectorResolver(config('outbound', [])));
         $this->app->bind(PlaceLookupClient::class, fn () => new PlaceLookupClient(config('lead-sources.drivers.google_places', [])));
     }
 
@@ -42,12 +47,15 @@ class AppServiceProvider extends ServiceProvider
     /** Enrichment queue: the lowest RPM among enabled paid clients (site scrape only: effectively unlimited). */
     protected function configureRateLimiters(): void
     {
-        RateLimiter::for('enrichment', function (): Limit {
-            $limits = collect(['hunter', 'evolution'])
-                ->filter(fn (string $client) => (bool) config("enrichment.{$client}.enabled"))
-                ->map(fn (string $client) => max(1, (int) config("enrichment.{$client}.requests_per_minute", 60)));
+        // Per project owner: each user's paid clients run on their own keys and quotas.
+        RateLimiter::for('enrichment', function (EnrichLeadJob $job): Limit {
+            $owner = Lead::with('project.user.integrations')->find($job->leadId)?->project->user;
 
-            return $limits->isEmpty() ? Limit::none() : Limit::perMinute($limits->min());
+            $limits = collect([IntegrationProvider::Hunter, IntegrationProvider::Evolution])
+                ->filter(fn (IntegrationProvider $provider) => $owner !== null && $owner->hasIntegration($provider))
+                ->map(fn (IntegrationProvider $provider) => max(1, (int) config("enrichment.{$provider->value}.requests_per_minute", 60)));
+
+            return $limits->isEmpty() ? Limit::none() : Limit::perMinute($limits->min())->by('user:'.$owner?->id);
         });
     }
 

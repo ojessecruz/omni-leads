@@ -7,8 +7,13 @@ use App\Domains\LeadSources\LeadSourceManager;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
-    config()->set('lead-sources.drivers.apollo', ['enabled' => true, 'key' => 'ak', 'max_pages' => 3, 'per_page' => 100, 'requests_per_minute' => 1000]);
+    config()->set('lead-sources.drivers.apollo', ['byok' => true, 'max_pages' => 3, 'per_page' => 100, 'requests_per_minute' => 1000]);
 });
+
+function apollo(): LeadSourceManager
+{
+    return app(LeadSourceManager::class)->withCredentials(['apollo' => ['key' => 'ak']]);
+}
 
 test('mapper combina cargos, locais com país em inglês, faixa de funcionários e keywords', function () {
     $criteria = IcpCriteria::fromArray([
@@ -48,7 +53,7 @@ test('mapper usa o endereço das áreas do mapa como local e avisa que o raio n�
 });
 
 test('driver exige cargo e keyword para valer a busca', function () {
-    $driver = app(LeadSourceManager::class)->driver('apollo');
+    $driver = apollo()->driver('apollo');
 
     expect($driver->supports(IcpCriteria::fromArray(['keywords' => ['spa']])))->toBeFalse()
         ->and($driver->supports(IcpCriteria::fromArray(['keywords' => ['spa'], 'job_titles' => ['owner']])))->toBeTrue();
@@ -67,7 +72,7 @@ test('pagina, normaliza pessoa + empresa e descarta e-mail bloqueado', function 
             ->push(['people' => [$person('p3', ['organization' => ['name' => 'X', 'website_url' => 'https://www.x.com/', 'country' => 'Portugal']])], 'pagination' => ['page' => 2, 'total_pages' => 2]]),
     ]);
 
-    $driver = app(LeadSourceManager::class)->driver('apollo');
+    $driver = apollo()->driver('apollo');
     $leads = iterator_to_array($driver->search([['person_titles' => ['owner'], 'q_organization_keyword_tags' => ['spa']]]), false);
 
     expect($leads)->toHaveCount(3)
@@ -88,14 +93,18 @@ test('pagina, normaliza pessoa + empresa e descarta e-mail bloqueado', function 
 test('erro da API vira exceção com mensagem', function () {
     Http::fake([ApolloDriver::ENDPOINT => Http::response(['error' => 'Invalid API key'], 401)]);
 
-    $driver = app(LeadSourceManager::class)->driver('apollo');
+    $driver = apollo()->driver('apollo');
 
     expect(fn () => iterator_to_array($driver->search([['person_titles' => ['ceo']]]), false))
         ->toThrow(RuntimeException::class, 'Invalid API key');
 });
 
-test('manager habilita apollo quando configurado', function () {
-    config()->set('lead-sources.drivers.google_places.enabled', false);
+test('manager habilita apollo quando o usuário tem a chave', function () {
+    expect(apollo()->enabledDrivers())->toBe(['apollo']);
+});
 
-    expect(app(LeadSourceManager::class)->enabledDrivers())->toBe(['apollo']);
+test('verify recusa chave quando o Apollo responde is_logged_in falso', function () {
+    Http::fake([ApolloDriver::HEALTH_ENDPOINT => Http::response(['healthy' => true, 'is_logged_in' => false])]);
+
+    expect(fn () => apollo()->driver('apollo')->verify())->toThrow(RuntimeException::class, 'invalid API key');
 });

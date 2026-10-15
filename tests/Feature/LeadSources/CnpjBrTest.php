@@ -26,7 +26,6 @@ function importFixtures(): void
 
 beforeEach(function () {
     config()->set('lead-sources.drivers.cnpj_br', ['enabled' => true, 'max_results_per_query' => 500, 'cost_per_request' => 0]);
-    config()->set('lead-sources.drivers.google_places.enabled', false);
 });
 
 test('importa cnaes, municípios, estabelecimentos ativos e razão social das empresas', function () {

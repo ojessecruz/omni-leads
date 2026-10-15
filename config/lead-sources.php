@@ -5,8 +5,8 @@ return [
 
     'drivers' => [
         'google_places' => [
-            'enabled' => (bool) env('GOOGLE_PLACES_ENABLED', true),
-            'key' => env('GOOGLE_PLACES_KEY'),
+            // Runs with the project owner's key (Settings > Integrations).
+            'byok' => true,
             // Places (New) returns at most 20 per page and 60 per text query.
             'max_pages' => (int) env('GOOGLE_PLACES_MAX_PAGES', 3),
             'requests_per_second' => (int) env('GOOGLE_PLACES_RPS', 10),
@@ -14,8 +14,7 @@ return [
             'cost_per_request' => (float) env('GOOGLE_PLACES_COST', 0.035),
         ],
         'apollo' => [
-            'enabled' => (bool) env('APOLLO_ENABLED', false),
-            'key' => env('APOLLO_KEY'),
+            'byok' => true,
             'max_pages' => (int) env('APOLLO_MAX_PAGES', 3),
             'per_page' => 100,
             'requests_per_minute' => (int) env('APOLLO_RPM', 50),

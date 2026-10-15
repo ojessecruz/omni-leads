@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 class LeadMerger
 {
     private const array STATUS_PRIORITY = [
+        LeadStatus::Replied->value => 5,
         LeadStatus::Contacted->value => 4,
         LeadStatus::Discarded->value => 3,
         LeadStatus::Qualified->value => 2,

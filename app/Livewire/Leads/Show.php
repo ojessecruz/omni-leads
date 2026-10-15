@@ -2,12 +2,14 @@
 
 namespace App\Livewire\Leads;
 
-use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Leads\LeadScorer;
+use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Jobs\EnrichLeadJob;
+use App\Jobs\PushLeadsToOutboundJob;
 use App\Jobs\SendWhatsAppJob;
 use App\Models\Lead;
 use Flux\Flux;
@@ -65,6 +67,23 @@ class Show extends Component
         Flux::toast(text: __('Status updated to :status.', ['status' => $this->lead->status->label()]));
     }
 
+    public function pushToOutbound(): void
+    {
+        Gate::authorize('update', $this->lead->project);
+
+        $connection = $this->lead->project->outboundConnection;
+
+        if ($connection === null || ! $connection->isReady() || ! $this->lead->email) {
+            Flux::toast(variant: 'danger', text: __('This lead cannot be sent: it needs an email and a connector with a campaign.'));
+
+            return;
+        }
+
+        PushLeadsToOutboundJob::dispatch($connection->id, [$this->lead->id]);
+
+        Flux::toast(variant: 'success', text: __('Lead queued for :campaign.', ['campaign' => $connection->campaign_name ?? $connection->campaign_id]));
+    }
+
     public function enrich(): void
     {
         Gate::authorize('update', $this->lead->project);
@@ -74,13 +93,19 @@ class Show extends Component
         Flux::toast(text: __('Enrichment queued. Refresh in a moment.'));
     }
 
-    public function render(LeadScorer $scorer): View
+    public function render(LeadScorer $scorer, OutboundConnectorResolver $resolver): View
     {
+        $outbound = $this->lead->project->outboundConnection;
+        $sources = $this->lead->sources()->latest()->get();
+
         return view('livewire.leads.show', [
-            'sources' => $this->lead->sources()->latest()->get(),
+            'sources' => $sources,
+            'outbound' => $outbound?->isReady() && $this->lead->email ? $outbound : null,
+            'outboundLabel' => $outbound ? $resolver->label($outbound->connector) : null,
+            'outboundSent' => $outbound !== null && $sources->contains(fn ($s) => $s->driver === $outbound->sourceDriver() && isset($s->raw_payload['pushed_at'])),
             'statuses' => LeadStatus::cases(),
             'scoring' => $scorer->evaluate($this->lead),
-            'canWhatsApp' => (bool) config('enrichment.evolution.enabled') && app(EvolutionClient::class)->isConfigured() && $this->lead->phone,
+            'canWhatsApp' => $this->lead->phone && $this->lead->project->user->hasIntegration(IntegrationProvider::Evolution),
         ])->title($this->lead->displayName());
     }
 }

@@ -27,7 +27,7 @@ class SourceSearchJob implements ShouldQueue
 
     public function handle(LeadSourceManager $sources, LeadUpserter $upserter): void
     {
-        $searchJob = SearchJob::with('icp')->findOrFail($this->searchJobId);
+        $searchJob = SearchJob::with('icp.project.user.integrations')->findOrFail($this->searchJobId);
 
         // Idempotency: only process while still pending.
         if (! $searchJob->isPending()) {
@@ -39,7 +39,7 @@ class SourceSearchJob implements ShouldQueue
         $count = 0;
 
         try {
-            $driver = $sources->driver($searchJob->driver);
+            $driver = $sources->withCredentials($searchJob->icp->project->user->integrationCredentials())->driver($searchJob->driver);
 
             foreach ($driver->search($searchJob->params['queries'] ?? []) as $dto) {
                 $lead = $upserter->upsert($searchJob->icp, $dto);

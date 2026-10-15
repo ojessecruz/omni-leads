@@ -7,6 +7,7 @@ use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\LeadSources\Contracts\LeadSourceDriver;
 use App\Domains\LeadSources\Contracts\QueryMapper;
 use App\Domains\LeadSources\Contracts\TracksRequests;
+use App\Domains\LeadSources\Contracts\VerifiesCredentials;
 use App\Domains\LeadSources\Data\LeadDTO;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
@@ -22,7 +23,7 @@ use RuntimeException;
  *
  * @see https://developers.google.com/maps/documentation/places/web-service/text-search
  */
-class GooglePlacesDriver implements LeadSourceDriver, TracksRequests
+class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCredentials
 {
     private int $requests = 0;
 
@@ -48,6 +49,16 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests
     public function mapper(): QueryMapper
     {
         return new GooglePlacesMapper;
+    }
+
+    /** "IDs only" Text Search is a free SKU, so checking the key costs nothing. */
+    public function verify(): void
+    {
+        $response = $this->client('places.id')->post(self::ENDPOINT, ['textQuery' => 'coffee', 'pageSize' => 1]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(sprintf('Google Places responded %d: %s', $response->status(), $response->json('error.message', $response->body())));
+        }
     }
 
     public function requestCount(): int
@@ -204,17 +215,17 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests
         };
     }
 
-    private function client(): PendingRequest
+    private function client(string $fieldMask = self::FIELD_MASK): PendingRequest
     {
         $key = $this->config['key'] ?? null;
 
         if (blank($key)) {
-            throw new RuntimeException('GOOGLE_PLACES_KEY is not configured.');
+            throw new RuntimeException('Google Places API key is not configured.');
         }
 
         return Http::withHeaders([
             'X-Goog-Api-Key' => $key,
-            'X-Goog-FieldMask' => self::FIELD_MASK,
+            'X-Goog-FieldMask' => $fieldMask,
         ])->acceptJson()->connectTimeout(3)->timeout(15)->retry(2, 500, throw: false);
     }
 
@@ -222,7 +233,7 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests
     {
         $rps = max(1, (int) ($this->config['requests_per_second'] ?? 10));
 
-        while (! RateLimiter::attempt('lead-source:google_places', $rps, fn () => true, 1)) {
+        while (! RateLimiter::attempt('lead-source:google_places:'.md5((string) ($this->config['key'] ?? '')), $rps, fn () => true, 1)) {
             usleep(100_000);
         }
     }

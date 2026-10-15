@@ -5,8 +5,13 @@ use App\Domains\LeadSources\LeadSourceManager;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
-    config()->set('lead-sources.drivers.google_places', ['enabled' => true, 'key' => 'test-key', 'max_pages' => 3, 'requests_per_second' => 100]);
+    config()->set('lead-sources.drivers.google_places', ['byok' => true, 'max_pages' => 3, 'requests_per_second' => 100]);
 });
+
+function places(): LeadSourceManager
+{
+    return app(LeadSourceManager::class)->withCredentials(['google_places' => ['key' => 'test-key']]);
+}
 
 test('pagina até o nextPageToken acabar e normaliza o lead', function () {
     Http::fake([
@@ -15,7 +20,7 @@ test('pagina até o nextPageToken acabar e normaliza o lead', function () {
             ->push(['places' => [placePayload('p3', ['websiteUri' => 'https://instagram.com/spa'])]]),
     ]);
 
-    $driver = app(LeadSourceManager::class)->driver('google_places');
+    $driver = places()->driver('google_places');
     $leads = iterator_to_array($driver->search([['text' => 'spa in São Paulo', 'region_code' => null]]), false);
 
     expect($leads)->toHaveCount(3)
@@ -36,7 +41,7 @@ test('respeita max_pages', function () {
     config()->set('lead-sources.drivers.google_places.max_pages', 1);
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['places' => [placePayload('p1')], 'nextPageToken' => 'tok'])]);
 
-    $driver = app(LeadSourceManager::class)->driver('google_places');
+    $driver = places()->driver('google_places');
     iterator_to_array($driver->search([['text' => 'spa', 'region_code' => 'br']]), false);
 
     Http::assertSentCount(1);
@@ -50,7 +55,7 @@ test('área do mapa vai como locationRestriction e descarta lugares fora do raio
         placePayload('no-location'),
     ]])]);
 
-    $driver = app(LeadSourceManager::class)->driver('google_places');
+    $driver = places()->driver('google_places');
     $leads = iterator_to_array($driver->search([[
         'text' => 'spa',
         'region_code' => 'br',
@@ -72,15 +77,24 @@ test('área do mapa vai como locationRestriction e descarta lugares fora do raio
 test('lança exceção com a mensagem da API em erro', function () {
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['error' => ['message' => 'API key not valid']], 403)]);
 
-    $driver = app(LeadSourceManager::class)->driver('google_places');
+    $driver = places()->driver('google_places');
 
     expect(fn () => iterator_to_array($driver->search([['text' => 'spa']]), false))
         ->toThrow(RuntimeException::class, 'API key not valid');
 });
 
-test('manager lista só drivers habilitados e implementados', function () {
-    config()->set('lead-sources.drivers.apollo.enabled', false);
+test('manager lista só drivers implementados e com a chave do usuário', function () {
     config()->set('lead-sources.drivers.hunter', ['enabled' => true]); // no createHunterDriver → ignored
 
-    expect(app(LeadSourceManager::class)->enabledDrivers())->toBe(['google_places']);
+    expect(app(LeadSourceManager::class)->enabledDrivers())->toBe([])
+        ->and(places()->enabledDrivers())->toBe(['google_places'])
+        ->and(app(LeadSourceManager::class)->withCredentials(['google_places' => ['key' => '']])->enabledDrivers())->toBe([]);
+});
+
+test('verify usa o SKU gratuito só de IDs e traduz chave recusada', function () {
+    Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['error' => ['message' => 'API key not valid']], 400)]);
+
+    expect(fn () => places()->driver('google_places')->verify())->toThrow(RuntimeException::class, 'API key not valid');
+
+    Http::assertSent(fn ($req) => $req->hasHeader('X-Goog-FieldMask', 'places.id') && $req['pageSize'] === 1);
 });

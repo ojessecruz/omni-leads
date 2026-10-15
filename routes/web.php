@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\OutboundWebhookController;
 use App\Http\Controllers\ThemeController;
 use App\Livewire\Icps\Show as IcpShow;
 use App\Livewire\Icps\Wizard as IcpWizard;
@@ -9,10 +10,15 @@ use App\Livewire\Leads\Show as LeadShow;
 use App\Livewire\Projects\Index as ProjectsIndex;
 use App\Livewire\Projects\Settings as ProjectSettings;
 use App\Livewire\Projects\Show as ProjectShow;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
+Route::post('outbound/{connection}/webhook/{secret}', OutboundWebhookController::class)
+    ->withoutMiddleware(ValidateCsrfToken::class)
+    ->middleware('throttle:600,1')
+    ->name('outbound.webhook');
 Route::post('locale', LocaleController::class)->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {

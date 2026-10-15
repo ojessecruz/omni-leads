@@ -21,6 +21,12 @@ class PlaceLookupClient
     /** @param  array<string, mixed>  $config  the google_places lead-source config */
     public function __construct(private array $config) {}
 
+    /** @param  array<string, string>  $credentials  the project owner's Google Places key (BYOK) */
+    public function withCredentials(array $credentials): self
+    {
+        return new self([...$this->config, ...$credentials]);
+    }
+
     /** @return list<array{label: string, lat: float, lng: float}> */
     public function search(string $text, ?string $languageCode = null): array
     {
@@ -69,7 +75,7 @@ class PlaceLookupClient
         $key = $this->config['key'] ?? null;
 
         if (blank($key)) {
-            throw new RuntimeException('GOOGLE_PLACES_KEY is not configured.');
+            throw new RuntimeException('Google Places API key is not configured.');
         }
 
         return Http::withHeaders([

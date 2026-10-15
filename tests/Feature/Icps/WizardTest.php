@@ -2,6 +2,7 @@
 
 use App\Domains\Icp\Clients\PlaceLookupClient;
 use App\Enums\IcpStatus;
+use App\Enums\IntegrationProvider;
 use App\Jobs\DispatchIcpSearchJob;
 use App\Livewire\Icps\Wizard;
 use App\Models\IcpDraft;
@@ -188,7 +189,6 @@ test('fluxo Ask AI: prompt com contexto, resposta parseada vira critérios e pul
 
 test('mapa: busca local, adiciona e remove área com raio e salva nos critérios', function () {
     Queue::fake();
-    config()->set('lead-sources.drivers.google_places.key', 'test-key');
     Http::fake([PlaceLookupClient::ENDPOINT => Http::response(['places' => [
         ['displayName' => ['text' => 'Moema'], 'formattedAddress' => 'Moema, São Paulo - SP, Brasil', 'location' => ['latitude' => -23.6, 'longitude' => -46.66]],
         ['displayName' => ['text' => 'Sem coordenada']],
@@ -196,6 +196,7 @@ test('mapa: busca local, adiciona e remove área com raio e salva nos critérios
 
     $user = User::factory()->create();
     $project = Project::factory()->for($user)->create();
+    connectIntegration($user, IntegrationProvider::GooglePlaces, ['key' => 'test-key']);
 
     IcpDraft::create([
         'project_id' => $project->id,
@@ -228,15 +229,15 @@ test('mapa: busca local, adiciona e remove área com raio e salva nos critérios
 
     expect($project->icps()->sole()->criteria['areas'])->toEqual([['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 2.5, 'label' => 'Moema, São Paulo - SP, Brasil']]);
 
-    Http::assertSent(fn ($req) => $req['textQuery'] === 'Moema' && $req->hasHeader('X-Goog-FieldMask', 'places.displayName,places.formattedAddress,places.location'));
+    Http::assertSent(fn ($req) => $req['textQuery'] === 'Moema' && $req->hasHeader('X-Goog-Api-Key', 'test-key') && $req->hasHeader('X-Goog-FieldMask', 'places.displayName,places.formattedAddress,places.location'));
 });
 
 test('mapa: falha da API de locais vira erro amigável', function () {
-    config()->set('lead-sources.drivers.google_places.key', 'test-key');
     Http::fake([PlaceLookupClient::ENDPOINT => Http::response(['error' => ['message' => 'API key not valid']], 403)]);
 
     $user = User::factory()->create();
     $project = Project::factory()->for($user)->create();
+    connectIntegration($user, IntegrationProvider::GooglePlaces, ['key' => 'test-key']);
 
     Livewire::actingAs($user)->test(Wizard::class, ['project' => $project])
         ->set('placeQuery', 'Moema')

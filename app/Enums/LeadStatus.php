@@ -8,6 +8,7 @@ enum LeadStatus: string
     case Qualified = 'qualified';
     case Discarded = 'discarded';
     case Contacted = 'contacted';
+    case Replied = 'replied';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum LeadStatus: string
             self::Qualified => __('Qualified'),
             self::Discarded => __('Discarded'),
             self::Contacted => __('Contacted'),
+            self::Replied => __('Replied'),
         };
     }
 
@@ -26,6 +28,7 @@ enum LeadStatus: string
             self::Qualified => 'lime',
             self::Discarded => 'red',
             self::Contacted => 'blue',
+            self::Replied => 'green',
         };
     }
 }

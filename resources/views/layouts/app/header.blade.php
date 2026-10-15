@@ -68,6 +68,7 @@
                                 <flux:menu.separator />
                             </div>
                             <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Settings') }}</flux:menu.item>
+                            <flux:menu.item :href="route('integrations.edit')" icon="key" wire:navigate>{{ __('Integrations') }}</flux:menu.item>
                             <form method="POST" action="{{ route('logout') }}" class="w-full">
                                 @csrf
                                 <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full cursor-pointer" data-test="logout-button">

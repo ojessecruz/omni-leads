@@ -10,8 +10,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * For each enabled driver that supports the ICP, creates a search_job
- * and queues the matching SourceSearchJob.
+ * For each driver enabled for the project owner (keyless or with their key)
+ * that supports the ICP, creates a search_job and queues the SourceSearchJob.
  */
 class DispatchIcpSearchJob implements ShouldQueue
 {
@@ -21,7 +21,8 @@ class DispatchIcpSearchJob implements ShouldQueue
 
     public function handle(LeadSourceManager $sources): void
     {
-        $icp = Icp::findOrFail($this->icpId);
+        $icp = Icp::with('project.user.integrations')->findOrFail($this->icpId);
+        $sources = $sources->withCredentials($icp->project->user->integrationCredentials());
         $criteria = $icp->criteria_object;
 
         if ($icp->status !== IcpStatus::Active) {
