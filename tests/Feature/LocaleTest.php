@@ -27,6 +27,52 @@ test('visitante recebe o idioma do navegador', function () {
     $this->withHeader('Accept-Language', 'fr')->get(route('login'))->assertSee('Log in');
 });
 
+test('switcher do visitante guarda o idioma na sessão e vence o navegador', function () {
+    $this->withHeader('Accept-Language', 'en-US')
+        ->from(route('home'))
+        ->post(route('locale.update'), ['locale' => 'pt_BR'])
+        ->assertRedirect(route('home'))
+        ->assertSessionHas('locale', 'pt_BR');
+
+    $this->withHeader('Accept-Language', 'en-US')->get(route('login'))->assertSee('Entrar');
+});
+
+test('switcher do usuário logado salva na conta e limpa a sessão', function () {
+    $user = User::factory()->create(['locale' => 'en']);
+
+    $this->actingAs($user)
+        ->withSession(['locale' => 'es'])
+        ->from(route('dashboard'))
+        ->post(route('locale.update'), ['locale' => 'pt_BR'])
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionMissing('locale');
+
+    expect($user->fresh()->locale)->toBe('pt_BR');
+});
+
+test('switcher rejeita idioma não suportado', function () {
+    $this->from(route('home'))->post(route('locale.update'), ['locale' => 'fr'])
+        ->assertSessionHasErrors('locale')
+        ->assertSessionMissing('locale');
+});
+
+test('switcher aparece na landing, no login e no app', function () {
+    $this->get(route('home'))->assertSee(route('locale.update'));
+    $this->get(route('login'))->assertSee(route('locale.update'));
+
+    $user = User::factory()->create(['locale' => 'pt_BR']);
+    $this->actingAs($user)->get(route('dashboard'))
+        ->assertSee(route('locale.update'))
+        ->assertSee('PT');
+});
+
+test('mensagens de autenticação seguem o idioma', function () {
+    $this->withHeader('Accept-Language', 'pt-BR')
+        ->from(route('login'))
+        ->post(route('login'), ['email' => 'nobody@example.com', 'password' => 'wrong-password'])
+        ->assertSessionHasErrors(['email' => 'Essas credenciais não conferem.']);
+});
+
 test('seletor de idioma salva no usuário e rejeita valor inválido', function () {
     $user = User::factory()->create();
 

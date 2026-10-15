@@ -24,7 +24,11 @@ class CnpjBrDriver implements LeadSourceDriver
 
     public function supports(IcpCriteria $criteria): bool
     {
+        // The Receita base has no coordinates: an ICP drawn only as map areas would turn into a nationwide search.
+        $onlyAreas = $criteria->areas !== [] && $criteria->regions === [];
+
         return $criteria->includesCountry('BR')
+            && ! $onlyAreas
             && ($criteria->keywords !== [] || $criteria->industry !== null)
             && CnpjEstablishment::query()->exists();
     }

@@ -14,6 +14,9 @@ use Opis\JsonSchema\Validator;
  */
 class IcpJsonParser
 {
+    /** Same limit as `industry.maxLength` in resources/schemas/icp.schema.json. */
+    private const int INDUSTRY_MAX_LENGTH = 80;
+
     public function parse(string $input): IcpCriteria
     {
         $json = $this->extractJson($input);
@@ -84,6 +87,31 @@ class IcpJsonParser
     }
 
     /**
+     * Agents often answer the segment with a whole sentence ("Beauty and wellness, focused on…").
+     * Keep the first clause and, if still too long, cut at a word boundary.
+     */
+    private function shortIndustry(string $industry): string
+    {
+        $industry = trim($industry);
+
+        if (mb_strlen($industry) <= self::INDUSTRY_MAX_LENGTH) {
+            return $industry;
+        }
+
+        $parts = preg_split('/[,.;:(–—]| - /u', $industry, 2);
+        $clause = $parts === false ? '' : trim($parts[0]);
+
+        if ($clause !== '' && mb_strlen($clause) <= self::INDUSTRY_MAX_LENGTH) {
+            return $clause;
+        }
+
+        $cut = mb_substr($clause !== '' ? $clause : $industry, 0, self::INDUSTRY_MAX_LENGTH + 1);
+        $space = mb_strrpos($cut, ' ');
+
+        return rtrim(mb_substr($cut, 0, $space !== false && $space > 0 ? $space : self::INDUSTRY_MAX_LENGTH));
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
@@ -99,6 +127,10 @@ class IcpJsonParser
                     fn ($v) => $v !== '',
                 ));
             }
+        }
+
+        if (isset($data['industry']) && is_string($data['industry'])) {
+            $data['industry'] = $this->shortIndustry($data['industry']);
         }
 
         if (isset($data['countries']) && is_array($data['countries'])) {

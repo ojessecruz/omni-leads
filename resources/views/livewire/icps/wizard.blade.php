@@ -66,6 +66,8 @@
                 <p class="mt-3 text-sm text-zinc-400">{{ __('It can come with text around it or inside ```json```. I clean it up and validate.') }}</p>
             </div>
             <flux:textarea wire:model="draft.ai_response" rows="14" class="font-mono text-xs" placeholder='{ "industry": "...", "keywords": [...], ... }' />
+            {{-- Without a label Flux does not render the field error on its own. --}}
+            <flux:error name="draft.ai_response" />
 
         @elseif ($step === 3)
             <div>
@@ -80,28 +82,14 @@
                 <h2 class="display text-3xl font-semibold text-white md:text-4xl">{{ __('Regions & countries') }}</h2>
                 <p class="mt-3 text-sm text-zinc-400">{{ __('With regions, each keyword is searched in each city/neighborhood. Without regions, the whole country.') }}</p>
             </div>
-            @include('livewire.icps.partials.tags', ['field' => 'regions', 'label' => __('Regions (cities, neighborhoods)'), 'placeholder' => __('e.g. São Paulo, Moema, Miami (Enter adds)')])
+            @include('livewire.icps.partials.where')
 
-            <div x-data="{ q: '' }" class="space-y-3">
-                <flux:input x-model="q" :label="__('Countries')" :placeholder="__('Filter countries…')" icon="magnifying-glass" clearable />
-                <div class="grid max-h-64 grid-cols-2 gap-x-4 gap-y-1 overflow-y-auto rounded-xl border border-white/10 bg-ink p-3 sm:grid-cols-3">
-                    <flux:checkbox.group wire:model.live="draft.countries" class="contents">
-                        @foreach ($countries as $code => $name)
-                            <div wire:key="country-{{ $code }}" x-show="!q || @js(Str::lower(Str::ascii($name)).' '.strtolower($code)).includes(q.toLowerCase())">
-                                <flux:checkbox value="{{ $code }}" label="{{ $name }}" />
-                            </div>
-                        @endforeach
-                    </flux:checkbox.group>
-                </div>
-                <flux:error name="draft.countries" />
-                @if ($draft['countries'])
-                    <div class="flex flex-wrap gap-1">
-                        @foreach ($draft['countries'] as $code)
-                            <span wire:key="chip-{{ $code }}" class="chip">{{ \App\Support\Countries::name($code) }}</span>
-                        @endforeach
-                    </div>
-                @endif
+        @elseif ($step === 5 && $askAi)
+            <div>
+                <h2 class="display text-3xl font-semibold text-white md:text-4xl">{{ __('Where to search') }}</h2>
+                <p class="mt-3 text-sm text-zinc-400">{{ __('These are the places the agent suggested. Adjust regions and countries, or draw a radius on the map.') }}</p>
             </div>
+            @include('livewire.icps.partials.where')
 
         @elseif ($step === 5)
             <div>
@@ -158,8 +146,14 @@
                 </div>
                 <div>
                     <dt>{{ __('Regions') }}</dt>
-                    <dd class="flex flex-wrap gap-1.5">@forelse ($criteria->regions as $r)<span class="chip">{{ $r }}</span>@empty<span>{{ __('Whole country') }}</span>@endforelse</dd>
+                    <dd class="flex flex-wrap gap-1.5">@forelse ($criteria->regions as $r)<span class="chip">{{ $r }}</span>@empty<span>{{ $criteria->areas ? '—' : __('Whole country') }}</span>@endforelse</dd>
                 </div>
+                @if ($criteria->areas)
+                    <div class="sm:col-span-2">
+                        <dt>{{ __('Map areas') }}</dt>
+                        <dd class="flex flex-wrap gap-1.5">@foreach ($criteria->areas as $area)<span class="chip">{{ $area->displayName() }}</span>@endforeach</dd>
+                    </div>
+                @endif
                 <div>
                     <dt>{{ __('Job titles') }}</dt>
                     <dd>{{ $criteria->jobTitles ? implode(', ', $criteria->jobTitles) : '—' }}</dd>
@@ -170,7 +164,8 @@
                 </div>
             </dl>
 
-            @php($queries = count($criteria->keywords) * max(1, count($criteria->regions ?: $criteria->countries)))
+            @php($places = count($criteria->regions) + count($criteria->areas))
+            @php($queries = count($criteria->keywords) * max(1, $places ?: count($criteria->countries)))
             <div class="font-mono rounded-xl border border-signal/30 bg-signal/6 px-4 py-3 text-xs leading-5 text-zinc-300">
                 <span class="text-signal">→</span> {!! trans_choice('The search will run <strong>:count</strong> Google Places query (up to 60 results each)|The search will run <strong>:count</strong> Google Places queries (up to 60 results each)', $queries) !!}{{ count(app(\App\Domains\LeadSources\LeadSourceManager::class)->enabledDrivers()) > 1 ? __(', plus the other enabled sources') : '' }}.
             </div>
@@ -184,7 +179,7 @@
                 <flux:button type="button" variant="subtle" wire:click="discard" :wire:confirm="__('Discard this ICP draft?')">{{ __('Discard') }}</flux:button>
             </div>
             @if ($step < \App\Livewire\Icps\Wizard::LAST_STEP)
-                <flux:button type="submit" variant="primary" icon-trailing="arrow-right">{{ $step === 4 && $askAi ? __('Validate and review') : __('Continue') }}</flux:button>
+                <flux:button type="submit" variant="primary" icon-trailing="arrow-right">{{ $step === 4 && $askAi ? __('Validate and continue') : __('Continue') }}</flux:button>
             @else
                 <div class="flex gap-2">
                     <flux:button type="button" wire:click="save(false)">{{ __('Save draft') }}</flux:button>

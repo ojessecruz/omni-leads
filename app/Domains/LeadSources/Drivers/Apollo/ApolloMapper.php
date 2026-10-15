@@ -2,6 +2,7 @@
 
 namespace App\Domains\LeadSources\Drivers\Apollo;
 
+use App\Domains\Icp\Data\GeoArea;
 use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\LeadSources\Contracts\QueryMapper;
 use App\Enums\CompanySize;
@@ -15,9 +16,14 @@ class ApolloMapper implements QueryMapper
 {
     public function map(IcpCriteria $criteria): array
     {
-        $locations = $criteria->regions !== []
-            ? $this->regionsWithCountries($criteria)
-            : array_map(fn (string $c) => Countries::englishName($c), $criteria->countries);
+        $locations = [
+            ...$criteria->regions !== [] ? $this->regionsWithCountries($criteria) : [],
+            ...$this->areaLabels($criteria),
+        ];
+
+        if ($locations === []) {
+            $locations = array_map(fn (string $c) => Countries::englishName($c), $criteria->countries);
+        }
 
         $keywords = array_values(array_unique(array_filter([
             $criteria->industry,
@@ -34,7 +40,29 @@ class ApolloMapper implements QueryMapper
 
     public function unsupported(IcpCriteria $criteria): array
     {
-        return $criteria->hasSignals() ? ['signals'] : [];
+        $unsupported = [];
+
+        if ($criteria->hasSignals()) {
+            $unsupported[] = 'signals';
+        }
+        // Apollo has no radius filter: areas are searched by their address.
+        if ($criteria->areas !== []) {
+            $unsupported[] = 'areas';
+        }
+
+        return $unsupported;
+    }
+
+    /**
+     * Map areas by their address label (unlabeled areas cannot be expressed to Apollo).
+     *
+     * @return list<string>
+     */
+    private function areaLabels(IcpCriteria $criteria): array
+    {
+        $labels = array_map(fn (GeoArea $area) => $area->label, $criteria->areas);
+
+        return array_values(array_unique(array_filter($labels, fn (string $label) => $label !== '')));
     }
 
     /**

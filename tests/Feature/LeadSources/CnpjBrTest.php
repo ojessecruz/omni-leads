@@ -98,7 +98,9 @@ test('driver só suporta ICP com BR e base importada, e busca por CNAE + municí
     importFixtures();
 
     expect($driver->supports($criteria))->toBeTrue()
-        ->and($driver->supports(IcpCriteria::fromArray(['keywords' => ['estética'], 'countries' => ['US']])))->toBeFalse();
+        ->and($driver->supports(IcpCriteria::fromArray(['keywords' => ['estética'], 'countries' => ['US']])))->toBeFalse()
+        // Only map areas: the base has no coordinates, so it would become a nationwide search.
+        ->and($driver->supports(IcpCriteria::fromArray(['keywords' => ['estética'], 'countries' => ['BR'], 'areas' => [['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 3]]])))->toBeFalse();
 
     DB::enableQueryLog();
     $leads = iterator_to_array($driver->search([[

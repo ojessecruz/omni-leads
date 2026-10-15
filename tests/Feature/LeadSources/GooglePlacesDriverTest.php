@@ -43,6 +43,32 @@ test('respeita max_pages', function () {
     Http::assertSent(fn ($req) => $req['regionCode'] === 'br' && $req['languageCode'] === 'pt-BR');
 });
 
+test('área do mapa vai como locationRestriction e descarta lugares fora do raio', function () {
+    Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['places' => [
+        placePayload('inside', ['location' => ['latitude' => -23.60, 'longitude' => -46.66]]),
+        placePayload('corner', ['location' => ['latitude' => -23.586, 'longitude' => -46.646]]), // inside the rectangle, ~2.1 km away
+        placePayload('no-location'),
+    ]])]);
+
+    $driver = app(LeadSourceManager::class)->driver('google_places');
+    $leads = iterator_to_array($driver->search([[
+        'text' => 'spa',
+        'region_code' => 'br',
+        'area' => ['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 2, 'label' => 'Moema'],
+    ]]), false);
+
+    expect(array_map(fn ($lead) => $lead->externalId, $leads))->toBe(['inside']);
+
+    Http::assertSent(function ($req) {
+        $box = $req['locationRestriction']['rectangle'] ?? null;
+
+        return $req['textQuery'] === 'spa'
+            && str_contains($req->header('X-Goog-FieldMask')[0], 'places.location')
+            && $box['low']['latitude'] < -23.6 && $box['high']['latitude'] > -23.6
+            && $box['low']['longitude'] < -46.66 && $box['high']['longitude'] > -46.66;
+    });
+});
+
 test('lança exceção com a mensagem da API em erro', function () {
     Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['error' => ['message' => 'API key not valid']], 403)]);
 
