@@ -96,7 +96,7 @@
 <div class="overflow-hidden border-y border-white/6 py-4">
     <div class="marquee font-mono text-xs uppercase tracking-eyebrow text-zinc-500">
         @for ($i = 0; $i < 2; $i++)
-            @foreach (['Google Places', 'Apollo', 'Receita Federal', 'Hunter.io', 'Evolution API', 'n8n', 'Make', 'CSV', 'JSON Schema', 'Horizon'] as $item)
+            @foreach (['Google Places', 'Apollo', 'Hunter.io','Saleshandy' ,'Evolution API', 'n8n', 'Make'] as $item)
                 <span class="px-8">{{ $item }}</span><span class="text-signal">·</span>
             @endforeach
         @endfor
