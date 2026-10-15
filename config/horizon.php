@@ -45,6 +45,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Horizon Admins
+    |--------------------------------------------------------------------------
+    |
+    | Comma separated emails allowed to open the dashboard outside local.
+    |
+    */
+
+    'admins' => array_values(array_filter(array_map('trim', explode(',', (string) env('HORIZON_ADMINS', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Horizon Redis Connection
     |--------------------------------------------------------------------------
     |
