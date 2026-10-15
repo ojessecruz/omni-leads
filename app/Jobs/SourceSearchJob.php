@@ -41,7 +41,14 @@ class SourceSearchJob implements ShouldQueue
         try {
             $driver = $sources->withCredentials($searchJob->icp->project->user->integrationCredentials())->driver($searchJob->driver);
 
+            $criteria = $searchJob->icp->criteria_object;
+
             foreach ($driver->search($searchJob->params['queries'] ?? []) as $dto) {
+                // Sources resolve ambiguous places on their own: never keep a lead from another country.
+                if (! $criteria->acceptsCountry($dto->country)) {
+                    continue;
+                }
+
                 $lead = $upserter->upsert($searchJob->icp, $dto);
                 EnrichLeadJob::dispatch($lead->id);
                 $count++;

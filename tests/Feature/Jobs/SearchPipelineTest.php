@@ -88,6 +88,24 @@ test('SourceSearchJob busca, faz upsert, enfileira enriquecimento e marca done',
     Queue::assertPushed(EnrichLeadJob::class, fn ($j) => $j->queue === 'enrichment');
 });
 
+test('SourceSearchJob descarta leads de países fora do ICP', function () {
+    Queue::fake([EnrichLeadJob::class]);
+    Http::fake([GooglePlacesDriver::ENDPOINT => Http::response(['places' => [
+        placePayload('br'),
+        placePayload('us', [
+            'websiteUri' => 'https://www.spa-us.com/',
+            'internationalPhoneNumber' => '+1 803-555-0100',
+            'addressComponents' => [['longText' => 'United States', 'shortText' => 'US', 'types' => ['country', 'political']]],
+        ]),
+    ]])]);
+    $searchJob = searchJobWithPlacesKey();
+
+    (new SourceSearchJob($searchJob->id))->handle(app(LeadSourceManager::class), app(LeadUpserter::class));
+
+    expect($searchJob->fresh()->results_count)->toBe(1)
+        ->and($searchJob->icp->leads()->pluck('country')->all())->toBe(['BR']);
+});
+
 test('SourceSearchJob é idempotente: ignora job que não está pendente', function () {
     Http::fake();
     $searchJob = searchJobWithPlacesKey(['status' => SearchJobStatus::Done]);
