@@ -18,6 +18,7 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
      * @param  list<string>  $countries  ISO-3166 alpha-2, uppercase
      * @param  list<string>  $regions
      * @param  list<string>  $jobTitles
+     * @param  list<GeoArea>  $areas  radius searches drawn on the map
      */
     public function __construct(
         public ?string $industry = null,
@@ -29,6 +30,7 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
         public ?bool $hasWebsite = null,
         public ?int $minReviews = null,
         public ?float $minRating = null,
+        public array $areas = [],
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -49,6 +51,7 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
             hasWebsite: isset($signals['has_website']) ? filter_var($signals['has_website'], FILTER_VALIDATE_BOOLEAN) : null,
             minReviews: is_numeric($signals['min_reviews'] ?? null) ? (int) $signals['min_reviews'] : null,
             minRating: is_numeric($signals['min_rating'] ?? null) ? (float) $signals['min_rating'] : null,
+            areas: self::areaList($data['areas'] ?? []),
         );
     }
 
@@ -62,6 +65,7 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
             'regions' => $this->regions,
             'company_size' => $this->companySize?->value,
             'job_titles' => $this->jobTitles,
+            'areas' => array_map(fn (GeoArea $area) => $area->toArray(), $this->areas),
             'signals' => [
                 'has_website' => $this->hasWebsite,
                 'min_reviews' => $this->minReviews,
@@ -85,6 +89,24 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
     public function hasSignals(): bool
     {
         return $this->hasWebsite !== null || $this->minReviews !== null || $this->minRating !== null;
+    }
+
+    /** Whether the search is limited to explicit places (regions or map areas) rather than whole countries. */
+    public function hasLocalities(): bool
+    {
+        return $this->regions !== [] || $this->areas !== [];
+    }
+
+    /** @return list<GeoArea> */
+    private static function areaList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $areas = array_map(fn ($item) => is_array($item) ? GeoArea::fromArray($item) : null, $value);
+
+        return array_values(array_filter($areas));
     }
 
     private static function nullableString(mixed $value): ?string

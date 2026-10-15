@@ -31,9 +31,15 @@ Sempre rode `npm`/`composer`/`artisan` via `sail` — `node_modules` é do Linux
 - Validação em pt_BR: `lang/pt_BR/validation.php` (só as regras usadas).
 
 ## Fase 2
-- Ask AI: `resources/views/prompts/icp.blade.php` (prompt) + `Domains/Icp/IcpJsonParser` (fences, texto em volta, vírgula sobrando, aspas simples, chaves sem aspas; schema em `resources/schemas/icp.schema.json` via opis/json-schema). Fluxo do wizard pula o passo 5.
+- Ask AI: `resources/views/prompts/icp.blade.php` (prompt) + `Domains/Icp/IcpJsonParser` (fences, texto em volta, vírgula sobrando, aspas simples, chaves sem aspas; schema em `resources/schemas/icp.schema.json` via opis/json-schema). No Ask AI o passo 5 é "Onde" (mesmo partial `icps/partials/where` do passo 4 manual) para ajustar o local sugerido; re-validar a resposta mantém as áreas já desenhadas.
 - Enriquecimento (`Domains/Enrichment/`, `config/enrichment.php`): `LeadEnricher` roda waterfall site_scrape → hunter → evolution; cada passo grava `lead_sources` (driver `site_scrape|hunter|evolution`, `external_id` = `driver:lead_id`). `EnrichLeadJob` (fila `enrichment`) respeita `enriched_at` + TTL e sempre dispara `ScoreLeadJob`; usa middleware `RateLimited('enrichment')` (limiter no `AppServiceProvider` = menor RPM entre hunter/evolution habilitados) com `retryUntil` 6h e `maxExceptions` 2. O throttle com `usleep` dentro dos clientes fica só como rede de segurança.
 - Score (`Domains/Leads/LeadScorer`, `config/lead-scoring.php`): normalizado sobre os pesos **aplicáveis** ao ICP; `qualified_threshold` move new ↔ qualified, nunca mexe em discarded/contacted. Breakdown aparece no detalhe do lead.
+
+## Busca por raio (áreas no mapa)
+- `IcpCriteria::$areas` = lista de `Domains/Icp/Data/GeoArea` (`lat`, `lng`, `radius_km` 0,5–50, `label`); `hasLocalities()` = regiões ou áreas.
+- Google Places: cada keyword × área é uma busca só com a keyword + `locationRestriction` (a Text Search só aceita retângulo, então vai o `boundingBox()` do círculo) e o driver descarta o que cair fora do raio por haversine (`places.location` no field mask).
+- Apollo usa o `label` da área como localidade (sem raio, `areas` em `unsupported`). `cnpj_br` não tem coordenadas: não roda quando o ICP só tem áreas.
+- UI: `icps/partials/area-map` + `resources/js/area-map.js` (Alpine `areaMap`, Leaflet importado sob demanda; tiles em `config(services.map_tiles)`, padrão OpenStreetMap sem chave escurecido por CSS `.area-map-dark`). Busca de endereço via `Domains/Icp/Clients/PlaceLookupClient` (Places Text Search só com campos de localização), limitada a `Wizard::PLACE_LOOKUPS_PER_MINUTE` por usuário.
 
 ## Qualidade
 ```

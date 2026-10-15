@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    /*
+     * Map tiles for the ICP area picker. The default (OpenStreetMap) needs no key but is light,
+     * so `dark_filter` darkens it with CSS. For heavy production use point this at a keyed
+     * provider (MapTiler, Stadia, CARTO…) and turn the filter off if its style is already dark.
+     */
+    'map_tiles' => [
+        'url' => env('MAP_TILES_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'attribution' => env('MAP_TILES_ATTRIBUTION', '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'),
+        'dark_filter' => (bool) env('MAP_TILES_DARK_FILTER', true),
+    ],
+
 ];

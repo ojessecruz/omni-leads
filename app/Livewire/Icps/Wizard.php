@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Icps;
 
+use App\Domains\Icp\Clients\PlaceLookupClient;
+use App\Domains\Icp\Data\GeoArea;
 use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\Icp\Exceptions\IcpParseException;
 use App\Domains\Icp\IcpJsonParser;
@@ -15,16 +17,19 @@ use App\Models\Project;
 use App\Support\Countries;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use RuntimeException;
 
 /**
  * ICP wizard. Persists to icp_drafts on every next() — a refresh loses nothing.
  *
- * Manual: 1 Context · 2 Mode · 3 Segment & keywords · 4 Regions & countries · 5 Size, job titles & signals · 6 Review
- * Ask AI: 1 Context · 2 Mode · 3 Prompt · 4 Answer · 6 Review
+ * Manual: 1 Context · 2 Mode · 3 Segment & keywords · 4 Where (regions, map areas, countries) · 5 Size, job titles & signals · 6 Review
+ * Ask AI: 1 Context · 2 Mode · 3 Prompt · 4 Answer · 5 Where (adjust what the agent suggested) · 6 Review
  */
 #[Title('New ICP')]
 class Wizard extends Component
@@ -44,10 +49,16 @@ class Wizard extends Component
         2 => 'Mode',
         3 => 'Prompt',
         4 => 'Answer',
+        5 => 'Where',
         6 => 'Review',
     ];
 
     public const int LAST_STEP = 6;
+
+    public const int MAX_AREAS = 20;
+
+    /** Place lookups per user per minute (each one is a paid Places request). */
+    public const int PLACE_LOOKUPS_PER_MINUTE = 20;
 
     public Project $project;
 
@@ -60,6 +71,11 @@ class Wizard extends Component
 
     /** @var array<string, string> */
     public array $tagInput = ['keywords' => '', 'regions' => '', 'job_titles' => ''];
+
+    public string $placeQuery = '';
+
+    /** @var list<array{label: string, lat: float, lng: float}> */
+    public array $placeResults = [];
 
     public function mount(Project $project): void
     {
@@ -171,6 +187,8 @@ class Wizard extends Component
             'keywords' => $criteria->keywords,
             'countries' => $criteria->countries,
             'regions' => $criteria->regions,
+            // Agents rarely answer with coordinates: keep the areas already drawn unless the answer brings its own.
+            'areas' => $criteria->areas !== [] ? $this->areasToArray($criteria->areas) : $this->draft['areas'],
             'company_size' => $criteria->companySize?->value,
             'job_titles' => $criteria->jobTitles,
             'has_website' => (bool) $criteria->hasWebsite,
@@ -220,6 +238,77 @@ class Wizard extends Component
         }
     }
 
+    /** Finds an address/neighborhood/city to center the map on. */
+    public function searchPlace(PlaceLookupClient $places): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->validate(['placeQuery' => ['required', 'string', 'min:2', 'max:120']]);
+
+        $this->placeResults = [];
+        $limiterKey = 'place-lookup:'.auth()->id();
+
+        if (RateLimiter::tooManyAttempts($limiterKey, self::PLACE_LOOKUPS_PER_MINUTE)) {
+            $this->addError('placeQuery', __('Too many searches. Wait a minute or click on the map.'));
+
+            return;
+        }
+
+        RateLimiter::hit($limiterKey);
+
+        try {
+            $this->placeResults = $places->search($this->placeQuery, str_replace('_', '-', app()->getLocale()));
+        } catch (RuntimeException $e) {
+            report($e);
+            $this->addError('placeQuery', __('Could not search places right now. Click on the map instead.'));
+
+            return;
+        }
+
+        if ($this->placeResults === []) {
+            $this->addError('placeQuery', __('No place found. Try another name or click on the map.'));
+        }
+    }
+
+    /** Returns whether the area was added (the map keeps the pending circle otherwise). */
+    public function addArea(mixed $lat, mixed $lng, mixed $radiusKm, mixed $label = ''): bool
+    {
+        Gate::authorize('update', $this->project);
+
+        $data = Validator::make(
+            ['lat' => $lat, 'lng' => $lng, 'radius_km' => $radiusKm, 'label' => $label],
+            $this->areaRules(''),
+        )->validate();
+
+        if (count($this->draft['areas']) >= self::MAX_AREAS) {
+            $this->addError('draft.areas', __('Up to :max areas per ICP.', ['max' => self::MAX_AREAS]));
+
+            return false;
+        }
+
+        $area = GeoArea::fromArray($data);
+
+        if ($area === null) {
+            return false;
+        }
+
+        $this->draft['areas'][] = $area->toArray();
+        $this->placeResults = [];
+        $this->placeQuery = '';
+
+        return true;
+    }
+
+    public function removeArea(int $index): void
+    {
+        Gate::authorize('update', $this->project);
+
+        if (isset($this->draft['areas'][$index])) {
+            unset($this->draft['areas'][$index]);
+            $this->draft['areas'] = array_values($this->draft['areas']);
+        }
+    }
+
     public function save(bool $run = false): void
     {
         Gate::authorize('update', $this->project);
@@ -260,6 +349,7 @@ class Wizard extends Component
             'keywords' => $this->draft['keywords'],
             'countries' => $this->draft['countries'],
             'regions' => $this->draft['regions'],
+            'areas' => $this->draft['areas'],
             'company_size' => $this->draft['company_size'],
             'job_titles' => $this->draft['job_titles'],
             'signals' => [
@@ -313,13 +403,8 @@ class Wizard extends Component
             ],
             4 => $this->isAskAi() ? [
                 'draft.ai_response' => ['required', 'string', 'max:20000'],
-            ] : [
-                'draft.countries' => ['array', 'min:1', 'max:20'],
-                'draft.countries.*' => [Rule::in(array_keys(Countries::ALL))],
-                'draft.regions' => ['array', 'max:50'],
-                'draft.regions.*' => ['string', 'max:80'],
-            ],
-            5 => [
+            ] : $this->whereRules(),
+            5 => $this->isAskAi() ? $this->whereRules() : [
                 'draft.company_size' => ['nullable', Rule::enum(CompanySize::class)],
                 'draft.job_titles' => ['array', 'max:20'],
                 'draft.job_titles.*' => ['string', 'max:60'],
@@ -332,6 +417,39 @@ class Wizard extends Component
             ],
             default => [],
         };
+    }
+
+    /** @return array<string, list<mixed>> */
+    protected function whereRules(): array
+    {
+        return [
+            'draft.countries' => ['array', 'min:1', 'max:20'],
+            'draft.countries.*' => [Rule::in(array_keys(Countries::ALL))],
+            'draft.regions' => ['array', 'max:50'],
+            'draft.regions.*' => ['string', 'max:80'],
+            'draft.areas' => ['array', 'max:'.self::MAX_AREAS],
+            ...$this->areaRules('draft.areas.*.'),
+        ];
+    }
+
+    /** @return array<string, list<mixed>> */
+    protected function areaRules(string $prefix): array
+    {
+        return [
+            "{$prefix}lat" => ['required', 'numeric', 'between:-90,90'],
+            "{$prefix}lng" => ['required', 'numeric', 'between:-180,180'],
+            "{$prefix}radius_km" => ['required', 'numeric', 'between:'.GeoArea::MIN_RADIUS_KM.','.GeoArea::MAX_RADIUS_KM],
+            "{$prefix}label" => ['nullable', 'string', 'max:120'],
+        ];
+    }
+
+    /**
+     * @param  list<GeoArea>  $areas
+     * @return list<array<string, mixed>>
+     */
+    protected function areasToArray(array $areas): array
+    {
+        return array_map(fn (GeoArea $area) => $area->toArray(), $areas);
     }
 
     /** @return array<string, mixed> */
@@ -348,6 +466,7 @@ class Wizard extends Component
             'keywords' => [],
             'countries' => ['BR'],
             'regions' => [],
+            'areas' => [],
             'company_size' => null,
             'job_titles' => [],
             'has_website' => false,
@@ -358,7 +477,11 @@ class Wizard extends Component
 
     protected function suggestName(): string
     {
-        $where = $this->draft['regions'][0] ?? Countries::name($this->draft['countries'][0] ?? 'BR');
+        $areaLabel = trim((string) preg_replace('/,.*$/', '', (string) ($this->draft['areas'][0]['label'] ?? '')));
+
+        $where = $this->draft['regions'][0]
+            ?? ($areaLabel !== '' ? $areaLabel : null)
+            ?? Countries::name($this->draft['countries'][0] ?? 'BR');
 
         return trim("{$this->draft['industry']} — {$where}");
     }

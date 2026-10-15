@@ -37,8 +37,13 @@
                         <span class="flex flex-wrap gap-1.5">@foreach ($criteria->countries as $c)<span class="chip">{{ \App\Support\Countries::name($c) }}</span>@endforeach</span>
                     </x-ui.kv>
                     <x-ui.kv :label="__('Regions')">
-                        <span class="flex flex-wrap gap-1.5">@forelse ($criteria->regions as $r)<span class="chip">{{ $r }}</span>@empty <span class="text-zinc-500">{{ __('Whole country') }}</span> @endforelse</span>
+                        <span class="flex flex-wrap gap-1.5">@forelse ($criteria->regions as $r)<span class="chip">{{ $r }}</span>@empty <span class="text-zinc-500">{{ $criteria->areas ? '—' : __('Whole country') }}</span> @endforelse</span>
                     </x-ui.kv>
+                    @if ($criteria->areas)
+                        <x-ui.kv class="sm:col-span-2" :label="__('Map areas')">
+                            <span class="flex flex-wrap gap-1.5">@foreach ($criteria->areas as $area)<span class="chip">{{ $area->displayName() }}</span>@endforeach</span>
+                        </x-ui.kv>
+                    @endif
                     <x-ui.kv :label="__('Job titles')">{{ $criteria->jobTitles ? implode(', ', $criteria->jobTitles) : '—' }}</x-ui.kv>
                     <x-ui.kv :label="__('Signals')">{{ $criteria->hasSignals() ? collect([$criteria->hasWebsite ? __('own website') : null, $criteria->minReviews !== null ? __('≥ :n reviews', ['n' => $criteria->minReviews]) : null, $criteria->minRating !== null ? __('rating ≥ :n', ['n' => $criteria->minRating]) : null])->filter()->implode(' · ') : '—' }}</x-ui.kv>
                 </dl>

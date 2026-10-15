@@ -1,11 +1,13 @@
 <?php
 
+use App\Domains\Icp\Clients\PlaceLookupClient;
 use App\Enums\IcpStatus;
 use App\Jobs\DispatchIcpSearchJob;
 use App\Livewire\Icps\Wizard;
 use App\Models\IcpDraft;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -145,14 +147,25 @@ test('fluxo Ask AI: prompt com contexto, resposta parseada vira critérios e pul
         ->call('next')->assertHasErrors('draft.ai_response')->assertSet('step', 4)
         ->set('draft.ai_response', "Segue:\n```json\n{\"industry\":\"estética\",\"keywords\":[\"day spa\"],\"countries\":[\"br\"],\"regions\":[\"Moema\"],\"company_size\":\"11-50\",\"job_titles\":[\"owner\"],\"signals\":{\"has_website\":true,\"min_reviews\":5,\"min_rating\":4.2}}\n```")
         ->call('next')->assertHasNoErrors()
+        ->assertSet('step', 5)
+        ->assertSee('Where to search')
+        ->assertSet('draft.regions', ['Moema'])
+        ->set('tagInput.regions', 'Pinheiros')
+        ->call('addTag', 'regions')
+        ->call('addArea', -23.6, -46.66, 3, 'Vila Olímpia')
+        ->call('next')->assertHasNoErrors()
         ->assertSet('step', 6)
         ->assertSet('draft.keywords', ['day spa'])
         ->assertSet('draft.countries', ['BR'])
         ->assertSet('draft.company_size', '11-50')
         ->assertSet('draft.name', 'estética — Moema');
 
-    // back from 6 goes to 4 (skips 5)
-    $component->call('back')->assertSet('step', 4)->call('next')->assertSet('step', 6);
+    // back from 6 goes to the Where step; re-validating the answer keeps the drawn areas
+    $component->call('back')->assertSet('step', 5)
+        ->call('back')->assertSet('step', 4)
+        ->call('next')->assertSet('step', 5)
+        ->assertCount('draft.areas', 1)
+        ->call('next')->assertSet('step', 6);
 
     // adjusting manually switches mode and jumps to manual step 3
     $component->call('editManually')->assertSet('mode', 'manual')->assertSet('step', 3)->assertSee('Segment &amp; keywords', false);
@@ -162,7 +175,67 @@ test('fluxo Ask AI: prompt com contexto, resposta parseada vira critérios e pul
 
     $icp = $project->icps()->sole();
     expect($icp->criteria['regions'])->toBe(['Moema'])
+        ->and($icp->criteria['areas'][0]['label'])->toBe('Vila Olímpia')
         ->and($icp->criteria['signals']['min_rating'])->toBe(4.2);
 
     Queue::assertPushed(DispatchIcpSearchJob::class);
+});
+
+test('mapa: busca local, adiciona e remove área com raio e salva nos critérios', function () {
+    Queue::fake();
+    config()->set('lead-sources.drivers.google_places.key', 'test-key');
+    Http::fake([PlaceLookupClient::ENDPOINT => Http::response(['places' => [
+        ['displayName' => ['text' => 'Moema'], 'formattedAddress' => 'Moema, São Paulo - SP, Brasil', 'location' => ['latitude' => -23.6, 'longitude' => -46.66]],
+        ['displayName' => ['text' => 'Sem coordenada']],
+    ]])]);
+
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+
+    IcpDraft::create([
+        'project_id' => $project->id,
+        'user_id' => $user->id,
+        'step' => 4,
+        'mode' => 'manual',
+        'draft' => ['industry' => 'estética', 'keywords' => ['spa'], 'countries' => ['BR']],
+    ]);
+
+    $component = Livewire::actingAs($user)->test(Wizard::class, ['project' => $project])
+        ->assertSee('Radius on the map')
+        ->call('searchPlace')->assertHasErrors('placeQuery')
+        ->set('placeQuery', 'Moema')
+        ->call('searchPlace')->assertHasNoErrors()
+        ->assertSet('placeResults', [['label' => 'Moema, São Paulo - SP, Brasil', 'lat' => -23.6, 'lng' => -46.66]])
+        ->assertSee('Moema, São Paulo - SP, Brasil')
+        ->call('addArea', -23.6, -46.66, 80, 'Moema')->assertHasErrors('radius_km')
+        ->assertSet('draft.areas', [])
+        ->call('addArea', -23.6, -46.66, 2.5, 'Moema, São Paulo - SP, Brasil')->assertHasNoErrors()
+        ->assertReturned(true)
+        ->assertSet('placeResults', [])
+        ->call('addArea', -22.9, -43.2, 5, '')
+        ->call('removeArea', 1)
+        ->assertSet('draft.areas', [['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 2.5, 'label' => 'Moema, São Paulo - SP, Brasil']])
+        ->call('next')->assertSet('step', 5)
+        ->call('next')->assertSet('step', 6)
+        ->assertSet('draft.name', 'estética — Moema')
+        ->assertSee('Moema, São Paulo - SP, Brasil (2.5 km)')
+        ->call('save', true)->assertHasNoErrors();
+
+    expect($project->icps()->sole()->criteria['areas'])->toEqual([['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 2.5, 'label' => 'Moema, São Paulo - SP, Brasil']]);
+
+    Http::assertSent(fn ($req) => $req['textQuery'] === 'Moema' && $req->hasHeader('X-Goog-FieldMask', 'places.displayName,places.formattedAddress,places.location'));
+});
+
+test('mapa: falha da API de locais vira erro amigável', function () {
+    config()->set('lead-sources.drivers.google_places.key', 'test-key');
+    Http::fake([PlaceLookupClient::ENDPOINT => Http::response(['error' => ['message' => 'API key not valid']], 403)]);
+
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+
+    Livewire::actingAs($user)->test(Wizard::class, ['project' => $project])
+        ->set('placeQuery', 'Moema')
+        ->call('searchPlace')
+        ->assertHasErrors('placeQuery')
+        ->assertSet('placeResults', []);
 });

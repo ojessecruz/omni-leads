@@ -266,3 +266,46 @@ code {
 }
 
 pre code { background: none; padding: 0; }
+
+[x-cloak] { display: none !important; }
+
+/* Leaflet (ICP area map): dark controls to match the panel.
+ * Scoped under .area-map so it outranks leaflet.css, which is imported later on demand. */
+.area-map.leaflet-container {
+    background-color: var(--color-ink);
+    font-family: var(--font-mono);
+    cursor: crosshair;
+}
+
+/* Light tile sets (OpenStreetMap) are inverted into a dark map; circles live in another pane and keep their colors. */
+.area-map-dark.leaflet-container .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.35);
+}
+
+.area-map.leaflet-container .leaflet-bar {
+    border: 1px solid rgba(255,255,255,.1);
+    box-shadow: none;
+}
+
+.area-map.leaflet-container .leaflet-bar a,
+.area-map.leaflet-container .leaflet-bar a:hover {
+    background-color: var(--color-panel);
+    color: var(--color-zinc-300);
+    border-bottom-color: rgba(255,255,255,.1);
+}
+
+.area-map.leaflet-container .leaflet-control-attribution {
+    background-color: rgba(9,9,11,.7);
+    color: var(--color-zinc-500);
+    font-size: 10px;
+}
+
+.area-map.leaflet-container .leaflet-control-attribution a { color: var(--color-zinc-400); }
+
+.area-map.leaflet-container .leaflet-tooltip {
+    background-color: var(--color-panel);
+    border-color: rgba(255,255,255,.1);
+    color: var(--color-zinc-200);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+}
