@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('campaign_name')->nullable();
             $table->boolean('auto_push')->default(false);
             $table->string('webhook_id')->nullable();
-            $table->string('webhook_secret', 64);
+            $table->text('webhook_secret');
             $table->text('last_error')->nullable();
             $table->timestamps();
         });

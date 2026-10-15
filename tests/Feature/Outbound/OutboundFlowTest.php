@@ -176,6 +176,10 @@ test('webhook com segredo errado é recusado; evento válido entra na fila', fun
     $connection = OutboundConnection::factory()->create();
     $body = ['event' => 'reply-received', 'prospect' => ['email' => 'ana@bela.com'], 'sequence' => ['id' => 'SEQ1']];
 
+    $stored = DB::table('outbound_connections')->value('webhook_secret');
+    expect($stored)->not->toBe($connection->webhook_secret)
+        ->and(decrypt($stored, false))->toBe($connection->webhook_secret);
+
     $this->postJson("/outbound/{$connection->id}/webhook/errado", $body)->assertUnauthorized();
     $this->postJson("/outbound/{$connection->id}/webhook/{$connection->webhook_secret}", ['event' => 'email-opened', 'prospect' => ['email' => 'a@b.com']])->assertOk();
     Queue::assertNothingPushed();

@@ -38,6 +38,7 @@ class OutboundConnection extends Model
     {
         return [
             'credentials' => 'encrypted:array',
+            'webhook_secret' => 'encrypted',
             'auto_push' => 'boolean',
         ];
     }
