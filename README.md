@@ -34,7 +34,7 @@ Depois disso: listagem com filtros e export CSV, dedup por projeto com merge aut
 
 Laravel 13 · Livewire 4 + Flux · Tailwind 4 · PostgreSQL 18 · Redis + Horizon · Pest 5 · Laravel Sail.
 
-Interface dark-only, com um design system próprio compartilhado entre a landing e o app. Textos em `en`, `pt_BR` e `es`.
+Interface escura por padrão, com tema claro opcional no app (Configurações › Aparência) e um design system próprio compartilhado entre a landing e o app. Textos em `en`, `pt_BR` e `es`.
 
 ## Rodando localmente
 

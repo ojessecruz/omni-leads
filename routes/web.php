@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\ThemeController;
 use App\Livewire\Icps\Show as IcpShow;
 use App\Livewire\Icps\Wizard as IcpWizard;
 use App\Livewire\Leads\Index as LeadsIndex;
@@ -16,6 +17,8 @@ Route::post('locale', LocaleController::class)->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
+
+    Route::post('theme', ThemeController::class)->name('theme.update');
 
     Route::livewire('projects', ProjectsIndex::class)->name('projects.index');
     Route::livewire('projects/{project}', ProjectShow::class)->name('projects.show');

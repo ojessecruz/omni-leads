@@ -1,7 +1,23 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+@php
+    $theme = auth()->user()->theme;
+@endphp
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark"
+      data-theme="{{ $theme === \App\Enums\Theme::Light ? 'light' : 'dark' }}"
+      @if ($theme === \App\Enums\Theme::System) data-theme-system @endif>
     <head>
         @include('partials.head')
+        @if ($theme === \App\Enums\Theme::System)
+            {{-- Follow the OS before first paint (no flash) and when it changes. --}}
+            <script>
+                (() => {
+                    const query = window.matchMedia('(prefers-color-scheme: light)');
+                    const apply = () => { document.documentElement.dataset.theme = query.matches ? 'light' : 'dark'; };
+                    apply();
+                    query.addEventListener('change', apply);
+                })();
+            </script>
+        @endif
     </head>
     <body class="app relative flex min-h-svh flex-col noise">
         @php
@@ -30,6 +46,7 @@
                     <a href="{{ route('home') }}" class="font-mono hidden text-2xs uppercase tracking-label text-zinc-500 hover:text-white lg:block">{{ __('Site') }}</a>
 
                     <x-ui.language-switcher />
+                    <x-ui.theme-switcher />
 
                     <flux:dropdown position="bottom" align="end">
                         <button type="button" class="flex items-center gap-2 rounded-full border border-white/10 py-1 pl-1 pr-3 text-sm text-zinc-300 transition hover:border-white/30 hover:text-white" data-test="sidebar-menu-button">
@@ -70,7 +87,7 @@
 
         <footer class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 border-t border-white/6 px-5 py-4">
             <a href="{{ route('home') }}">
-                <img src="{{ asset('images/omni-leads-logo.png') }}" alt="Omni Leads" class="h-12 w-auto">
+                <img src="{{ asset('images/omni-leads-logo.png') }}" alt="Omni Leads" class="brand-logo h-12 w-auto">
             </a>
             <span class="font-mono text-2xs text-zinc-600">{{ __('ICP → discovery → enrichment → score') }}</span>
         </footer>

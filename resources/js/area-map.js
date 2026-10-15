@@ -3,7 +3,10 @@
  * Leaflet is loaded on demand so the rest of the app does not pay for it.
  * Saved areas live in Livewire ($wire.draft.areas); only the pending circle is local state.
  */
-const SIGNAL = '#d7ff3c';
+/** Circle colors follow the app theme (see the light tokens in app.css). */
+function themeColor(token, fallback) {
+    return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
+}
 
 let leaflet = null;
 
@@ -64,12 +67,14 @@ export default function areaMap({ center, minRadius, maxRadius, tiles }) {
 
             savedLayer.clearLayers();
 
+            const signal = themeColor('--color-signal', '#d7ff3c');
+
             this.areas.forEach((area) => {
                 leaflet.circle([area.lat, area.lng], {
                     radius: area.radius_km * 1000,
-                    color: SIGNAL,
+                    color: signal,
                     weight: 1.5,
-                    fillColor: SIGNAL,
+                    fillColor: signal,
                     fillOpacity: 0.12,
                 }).bindTooltip(area.label || `${area.lat.toFixed(4)}, ${area.lng.toFixed(4)}`).addTo(savedLayer);
             });
@@ -93,8 +98,11 @@ export default function areaMap({ center, minRadius, maxRadius, tiles }) {
             const point = [this.pending.lat, this.pending.lng];
             const meters = Math.min(maxRadius, Math.max(minRadius, Number(this.radius))) * 1000;
 
-            pendingCircle ??= leaflet.circle(point, { color: '#ffffff', weight: 1.5, dashArray: '4 4', fillOpacity: 0.06 }).addTo(map);
-            pendingDot ??= leaflet.circleMarker(point, { radius: 4, color: '#ffffff', weight: 2, fillColor: SIGNAL, fillOpacity: 1 }).addTo(map);
+            const foreground = themeColor('--color-white', '#ffffff');
+            const signal = themeColor('--color-signal', '#d7ff3c');
+
+            pendingCircle ??= leaflet.circle(point, { color: foreground, weight: 1.5, dashArray: '4 4', fillOpacity: 0.06 }).addTo(map);
+            pendingDot ??= leaflet.circleMarker(point, { radius: 4, color: foreground, weight: 2, fillColor: signal, fillOpacity: 1 }).addTo(map);
 
             pendingCircle.setLatLng(point).setRadius(meters);
             pendingDot.setLatLng(point);

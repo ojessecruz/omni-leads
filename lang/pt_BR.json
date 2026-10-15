@@ -449,7 +449,6 @@
     ":count ICP.|:count ICPs.": ":count ICP.|:count ICPs.",
     "Who you sell to.": "Para quem você vende.",
     "No ICP defined.": "Nenhum ICP definido.",
-    "Omni Leads is dark by design. There is no light theme.": "O Omni Leads é escuro por definição. Não existe tema claro.",
     "Account": "Conta",
     "you, not the project.": "você, não o projeto.",
     "Error details": "Detalhes do erro",
@@ -474,5 +473,7 @@
     "Area name": "Nome da área",
     "e.g. Moema, São Paulo": "ex.: Moema, São Paulo",
     "Add area": "Adicionar área",
-    "This is the prompt, not the answer. Paste it into your agent and bring back the JSON it replies with.": "Isso é o prompt, não a resposta. Cole no seu agente e traga de volta o JSON que ele responder."
+    "This is the prompt, not the answer. Paste it into your agent and bring back the JSON it replies with.": "Isso é o prompt, não a resposta. Cole no seu agente e traga de volta o JSON que ele responder.",
+    "Theme": "Tema",
+    "Toggle theme": "Alternar tema"
 }

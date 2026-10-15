@@ -36,5 +36,6 @@ return [
         'whatsappTemplate' => 'template',
         'whatsappText' => 'message',
         'locale' => 'language',
+        'theme' => 'theme',
     ],
 ];
