@@ -62,6 +62,9 @@ class CnpjBrMapper implements QueryMapper
         if (count($criteria->countries) > 1) {
             $unsupported[] = 'countries';
         }
+        if ($criteria->areas !== []) {
+            $unsupported[] = 'areas';
+        }
 
         return $unsupported;
     }

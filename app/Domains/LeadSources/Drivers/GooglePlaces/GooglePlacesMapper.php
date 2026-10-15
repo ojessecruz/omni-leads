@@ -7,7 +7,8 @@ use App\Domains\LeadSources\Contracts\QueryMapper;
 use App\Support\Countries;
 
 /**
- * Grid of text queries: "{keyword} in {region}". Without regions, uses the country.
+ * Grid of text queries: "{keyword} in {region}" plus "{keyword}" restricted to each map area.
+ * Without regions or areas, uses the country.
  * Each grid cell is an independent search (capped at 60 results each),
  * so splitting by city/neighborhood multiplies the reach.
  */
@@ -18,13 +19,23 @@ class GooglePlacesMapper implements QueryMapper
         $queries = [];
 
         foreach ($criteria->keywords as $keyword) {
-            if ($criteria->regions !== []) {
+            if ($criteria->hasLocalities()) {
                 foreach ($criteria->regions as $region) {
                     $queries[] = [
                         'text' => "{$keyword} in {$region}",
                         'keyword' => $keyword,
                         'region' => $region,
                         'region_code' => null,
+                    ];
+                }
+
+                foreach ($criteria->areas as $area) {
+                    $queries[] = [
+                        'text' => $keyword,
+                        'keyword' => $keyword,
+                        'region' => $area->displayName(),
+                        'region_code' => count($criteria->countries) === 1 ? strtolower($criteria->countries[0]) : null,
+                        'area' => $area->toArray(),
                     ];
                 }
 
@@ -60,8 +71,8 @@ class GooglePlacesMapper implements QueryMapper
         if ($criteria->hasSignals()) {
             $unsupported[] = 'signals';
         }
-        // With regions, the country becomes a post-filter (Places resolves the region on its own).
-        if ($criteria->regions !== [] && $criteria->countries !== []) {
+        // With regions or areas, the country becomes a post-filter (Places resolves the place on its own).
+        if ($criteria->hasLocalities() && $criteria->countries !== []) {
             $unsupported[] = 'countries';
         }
 

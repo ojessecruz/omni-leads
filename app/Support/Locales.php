@@ -6,11 +6,21 @@ final class Locales
 {
     public const string DEFAULT = 'en';
 
+    /** Where a guest's chosen locale is kept (logged-in users have `users.locale`). */
+    public const string SESSION_KEY = 'locale';
+
     /** @var array<string, string> code => name in its own language */
     public const array SUPPORTED = [
         'en' => 'English',
         'pt_BR' => 'Português (Brasil)',
         'es' => 'Español',
+    ];
+
+    /** @var array<string, string> code => two-letter badge for the compact switcher */
+    public const array SHORT = [
+        'en' => 'EN',
+        'pt_BR' => 'PT',
+        'es' => 'ES',
     ];
 
     public static function isSupported(?string $locale): bool

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\Enrichment\Clients\SiteScraper;
+use App\Domains\Icp\Clients\PlaceLookupClient;
 use App\Domains\LeadSources\LeadSourceManager;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Enums\IntegrationProvider;
@@ -31,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(HunterClient::class, fn () => new HunterClient(config('enrichment.hunter', [])));
         $this->app->bind(EvolutionClient::class, fn () => new EvolutionClient(config('enrichment.evolution', [])));
         $this->app->bind(OutboundConnectorResolver::class, fn () => new OutboundConnectorResolver(config('outbound', [])));
+        $this->app->bind(PlaceLookupClient::class, fn () => new PlaceLookupClient(config('lead-sources.drivers.google_places', [])));
     }
 
     /**

@@ -45,3 +45,21 @@ test('lista critérios não suportados para filtro pós', function () {
     expect((new GooglePlacesMapper)->unsupported($criteria))
         ->toBe(['industry', 'company_size', 'job_titles', 'signals', 'countries']);
 });
+
+test('áreas do mapa viram buscas pela keyword restritas ao círculo, junto com as regiões', function () {
+    $criteria = IcpCriteria::fromArray([
+        'keywords' => ['day spa'],
+        'regions' => ['Miami'],
+        'countries' => ['BR'],
+        'areas' => [['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 3, 'label' => 'Moema']],
+    ]);
+
+    $mapper = new GooglePlacesMapper;
+    $queries = $mapper->map($criteria);
+
+    expect(array_column($queries, 'text'))->toBe(['day spa in Miami', 'day spa'])
+        ->and($queries[1]['area'])->toBe(['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 3.0, 'label' => 'Moema'])
+        ->and($queries[1]['region_code'])->toBe('br')
+        ->and($mapper->unsupported(IcpCriteria::fromArray(['keywords' => ['spa'], 'countries' => ['BR'], 'areas' => $criteria->toArray()['areas']])))
+        ->toBe(['countries']);
+});

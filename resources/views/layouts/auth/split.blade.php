@@ -31,7 +31,10 @@
             </aside>
 
             <div class="flex flex-col px-6 py-8 lg:col-span-6 xl:col-span-5">
-                <x-brand class="lg:hidden" />
+                <div class="flex items-center justify-between gap-3">
+                    <x-brand class="lg:hidden" />
+                    <x-ui.language-switcher class="ml-auto" />
+                </div>
                 <div class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
                     {{ $slot }}
                 </div>

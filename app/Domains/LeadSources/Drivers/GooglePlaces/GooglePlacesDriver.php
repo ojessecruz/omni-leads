@@ -2,6 +2,7 @@
 
 namespace App\Domains\LeadSources\Drivers\GooglePlaces;
 
+use App\Domains\Icp\Data\GeoArea;
 use App\Domains\Icp\Data\IcpCriteria;
 use App\Domains\LeadSources\Contracts\LeadSourceDriver;
 use App\Domains\LeadSources\Contracts\QueryMapper;
@@ -17,6 +18,9 @@ use RuntimeException;
 /**
  * Google Places API (New) — Text Search.
  *
+ * Map areas go out as locationRestriction (the API only takes a rectangle there),
+ * so places in the rectangle's corners are dropped by distance afterwards.
+ *
  * @see https://developers.google.com/maps/documentation/places/web-service/text-search
  */
 class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCredentials
@@ -26,7 +30,7 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
     public const string ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
 
     private const string FIELD_MASK = 'nextPageToken,places.id,places.displayName,places.formattedAddress,'
-        .'places.addressComponents,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,'
+        .'places.addressComponents,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,'
         .'places.rating,places.userRatingCount,places.businessStatus,places.primaryType,places.types,places.googleMapsUri';
 
     /** @param  array<string, mixed>  $config */
@@ -76,6 +80,7 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
     private function searchQuery(array $query): Generator
     {
         $pageToken = null;
+        $area = is_array($query['area'] ?? null) ? GeoArea::fromArray($query['area']) : null;
         $maxPages = max(1, (int) ($this->config['max_pages'] ?? 3));
 
         for ($page = 0; $page < $maxPages; $page++) {
@@ -85,6 +90,7 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
                 'pageToken' => $pageToken,
                 'regionCode' => $query['region_code'] ?? null,
                 'languageCode' => $this->languageFor($query['region_code'] ?? null),
+                'locationRestriction' => $area ? ['rectangle' => $area->boundingBox()] : null,
             ], fn ($v) => $v !== null);
 
             $this->throttle();
@@ -101,6 +107,10 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
             }
 
             foreach ($response->json('places', []) as $place) {
+                if ($area !== null && ! $this->isInside($area, $place)) {
+                    continue;
+                }
+
                 $dto = $this->toLead($place, $query);
 
                 if ($dto !== null) {
@@ -161,6 +171,15 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
         );
     }
 
+    /** @param  array<string, mixed>  $place */
+    private function isInside(GeoArea $area, array $place): bool
+    {
+        $lat = $place['location']['latitude'] ?? null;
+        $lng = $place['location']['longitude'] ?? null;
+
+        return is_numeric($lat) && is_numeric($lng) && $area->contains((float) $lat, (float) $lng);
+    }
+
     private function domainFromUrl(?string $url): ?string
     {
         if (! $url) {
@@ -214,7 +233,7 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
     {
         $rps = max(1, (int) ($this->config['requests_per_second'] ?? 10));
 
-        while (! RateLimiter::attempt('lead-source:google_places:'.md5((string) $this->config['key']), $rps, fn () => true, 1)) {
+        while (! RateLimiter::attempt('lead-source:google_places:'.md5((string) ($this->config['key'] ?? '')), $rps, fn () => true, 1)) {
             usleep(100_000);
         }
     }

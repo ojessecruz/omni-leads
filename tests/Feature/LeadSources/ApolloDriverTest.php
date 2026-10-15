@@ -34,6 +34,24 @@ test('mapper combina cargos, locais com país em inglês, faixa de funcionários
     expect($mapper->map($noRegions)[0]['organization_locations'])->toBe(['United States']);
 });
 
+test('mapper usa o endereço das áreas do mapa como local e avisa que o raio não é aplicado', function () {
+    $criteria = IcpCriteria::fromArray([
+        'keywords' => ['spa'], 'countries' => ['BR'], 'job_titles' => ['owner'],
+        'areas' => [
+            ['lat' => -23.6, 'lng' => -46.66, 'radius_km' => 3, 'label' => 'Moema, São Paulo - SP, Brazil'],
+            ['lat' => -22.9, 'lng' => -43.2, 'radius_km' => 3],
+        ],
+    ]);
+
+    $mapper = new ApolloMapper;
+
+    expect($mapper->map($criteria)[0]['organization_locations'])->toBe(['Moema, São Paulo - SP, Brazil'])
+        ->and($mapper->unsupported($criteria))->toBe(['areas']);
+
+    $unlabeled = IcpCriteria::fromArray(['keywords' => ['spa'], 'countries' => ['BR'], 'job_titles' => ['owner'], 'areas' => [['lat' => 1, 'lng' => 1, 'radius_km' => 3]]]);
+    expect($mapper->map($unlabeled)[0]['organization_locations'])->toBe(['Brazil']);
+});
+
 test('driver exige cargo e keyword para valer a busca', function () {
     $driver = apollo()->driver('apollo');
 

@@ -7,6 +7,20 @@
     "keywords": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 80 }, "minItems": 1, "maxItems": 30 },
     "countries": { "type": "array", "items": { "type": "string", "minLength": 2, "maxLength": 2 }, "minItems": 1, "maxItems": 20 },
     "regions": { "type": "array", "items": { "type": "string", "maxLength": 80 }, "maxItems": 50 },
+    "areas": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "properties": {
+          "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+          "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+          "radius_km": { "type": "number", "minimum": 0.5, "maximum": 50 },
+          "label": { "type": "string", "maxLength": 120 }
+        },
+        "required": ["lat", "lng", "radius_km"]
+      }
+    },
     "company_size": { "type": ["string", "null"], "enum": ["1-10", "11-50", "51-200", "200+", null] },
     "job_titles": { "type": "array", "items": { "type": "string", "maxLength": 60 }, "maxItems": 20 },
     "signals": {

@@ -8,7 +8,7 @@
         </div>
     @elseif ($whatsappQr)
         <div wire:poll.3s="checkPhone" class="mt-3 flex flex-col items-center gap-3 text-center">
-            <img src="{{ $whatsappQr }}" alt="{{ __('WhatsApp QR code') }}" class="size-56 rounded-lg bg-white p-2" />
+            <img src="{{ $whatsappQr }}" alt="{{ __('WhatsApp QR code') }}" class="size-56 rounded-lg bg-[#fff] p-2" />
             <p class="text-sm text-zinc-400">{{ __('On your phone, open WhatsApp › Linked devices › Link a device and scan the code.') }}</p>
             <p class="font-mono text-2xs text-zinc-500">{{ __('Waiting for the scan… the code renews by itself.') }}</p>
             <flux:button size="sm" variant="ghost" wire:click="cancelPairing">{{ __('Cancel') }}</flux:button>

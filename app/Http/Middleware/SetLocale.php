@@ -7,12 +7,16 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Logged-in user's locale; browser locale for guests; otherwise the default (en). */
+/** Logged-in user's locale; the guest's own choice (session); browser locale; otherwise the default (en). */
 class SetLocale
 {
     public function handle(Request $request, Closure $next): Response
     {
         $locale = $request->user()?->locale;
+
+        if (! Locales::isSupported($locale)) {
+            $locale = $request->session()->get(Locales::SESSION_KEY);
+        }
 
         if (! Locales::isSupported($locale)) {
             $locale = Locales::fromAcceptLanguage($request->header('Accept-Language'));
