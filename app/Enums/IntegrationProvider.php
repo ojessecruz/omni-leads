@@ -69,13 +69,18 @@ enum IntegrationProvider: string
 
     /**
      * Whether saved credentials are enough to use the provider. Evolution also needs
-     * the phone paired by QR code, which adds 'instance' and 'connected_at'.
+     * the phone paired by QR code ('instance', 'connected_at'); on Omni Leads' server
+     * ('mode' => 'hosted') the URL and key come from config instead.
      *
      * @param  array<string, string>  $credentials
      */
     public function isUsable(array $credentials): bool
     {
-        $needed = $this === self::Evolution ? ['base_url', 'key', 'instance', 'connected_at'] : ['key'];
+        $needed = match (true) {
+            $this !== self::Evolution => ['key'],
+            ($credentials['mode'] ?? 'own') === 'hosted' => ['instance', 'connected_at'],
+            default => ['base_url', 'key', 'instance', 'connected_at'],
+        };
 
         return array_all($needed, fn (string $field) => filled($credentials[$field] ?? null));
     }

@@ -31,5 +31,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="EVOLUTION_BASE_URL" value=""/>
+        <env name="EVOLUTION_API_KEY" value=""/>
     </php>
 </phpunit>

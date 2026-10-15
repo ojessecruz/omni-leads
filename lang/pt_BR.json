@@ -537,5 +537,13 @@
     "On your phone, open WhatsApp › Linked devices › Link a device and scan the code.": "No celular, abra o WhatsApp › Aparelhos conectados › Conectar um aparelho e escaneie o código.",
     "Waiting for the scan… the code renews by itself.": "Aguardando a leitura… o código se renova sozinho.",
     "Pair the phone that will check numbers and send the messages.": "Pareie o celular que vai verificar os números e enviar as mensagens.",
-    "Connect phone": "Conectar celular"
+    "Connect phone": "Conectar celular",
+    "Omni Leads does not offer a WhatsApp server here. Use your own.": "O Omni Leads não oferece servidor de WhatsApp nesta instalação. Use o seu próprio.",
+    "Using the Omni Leads WhatsApp server. Now connect your phone.": "Usando o servidor de WhatsApp do Omni Leads. Agora conecte o seu celular.",
+    "WhatsApp server": "Servidor de WhatsApp",
+    "Omni Leads server": "Servidor do Omni Leads",
+    "Just scan the QR code. Nothing to install.": "Só escanear o QR code. Nada para instalar.",
+    "My own server": "Meu próprio servidor",
+    "Your Evolution API URL and global key.": "URL e chave global da sua Evolution API.",
+    "Use this server": "Usar este servidor"
 }

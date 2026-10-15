@@ -1,10 +1,13 @@
 <?php
 
+use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\LeadSources\Drivers\GooglePlaces\GooglePlacesDriver;
 use App\Enums\IntegrationProvider;
+use App\Jobs\SendWhatsAppJob;
 use App\Livewire\Settings\Integrations;
 use App\Models\Integration;
+use App\Models\Lead;
 use App\Models\OutboundConnection;
 use App\Models\Project;
 use App\Models\User;
@@ -65,7 +68,7 @@ test('Evolution pede só servidor e chave global; chave em branco mantém a salv
         ->assertHasNoErrors();
 
     Http::assertSent(fn (Request $r) => $r->url() === 'https://evo.test/instance/fetchInstances' && $r->hasHeader('apikey', 'global-key'));
-    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['base_url' => 'https://evo.test', 'key' => 'global-key'])
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['mode' => 'own', 'base_url' => 'https://evo.test', 'key' => 'global-key'])
         // without a paired phone, WhatsApp is not usable yet
         ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeFalse();
 });
@@ -118,7 +121,10 @@ test('desconectar celular faz logout e mantém a instância para parear de novo'
 });
 
 test('trocar o servidor do Evolution descarta o celular pareado no servidor antigo', function () {
-    Http::fake(['https://novo.test/instance/fetchInstances' => Http::response([])]);
+    Http::fake([
+        'https://novo.test/instance/fetchInstances' => Http::response([]),
+        'https://evo.test/instance/delete/main' => Http::response(['status' => 'SUCCESS']),
+    ]);
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution);
 
@@ -127,7 +133,66 @@ test('trocar o servidor do Evolution descarta o celular pareado no servidor anti
         ->call('save', 'evolution')
         ->assertHasNoErrors();
 
-    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['base_url' => 'https://novo.test', 'key' => 'ek']);
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['mode' => 'own', 'base_url' => 'https://novo.test', 'key' => 'ek']);
+    Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && $r->url() === 'https://evo.test/instance/delete/main');
+});
+
+test('sem servidor do Omni Leads configurado, só existe a opção de servidor próprio', function () {
+    Livewire::actingAs(User::factory()->create())->test(Integrations::class)
+        ->assertSet('form.evolution.mode', 'own')
+        ->assertDontSee('Omni Leads server')
+        ->set('form.evolution.mode', 'hosted')
+        ->call('save', 'evolution')
+        ->assertHasErrors('form.evolution.mode');
+});
+
+test('servidor do Omni Leads: sem URL nem chave, pareia no servidor da plataforma e é usado no envio', function () {
+    config()->set('enrichment.evolution.base_url', 'https://omni-evo.test');
+    config()->set('enrichment.evolution.key', 'omni-global');
+    Http::fake([
+        'https://omni-evo.test/instance/create' => Http::response(['qrcode' => ['base64' => 'data:image/png;base64,QR']], 201),
+        'https://omni-evo.test/instance/connectionState/*' => Http::response(['instance' => ['state' => 'open']]),
+        'https://omni-evo.test/instance/fetchInstances*' => Http::response([['ownerJid' => '5511900001111@s.whatsapp.net']]),
+        'https://omni-evo.test/message/sendText/*' => Http::response(['key' => ['id' => 'M1']]),
+    ]);
+    $lead = Lead::factory()->create(['phone' => '5511999990000']);
+    $user = $lead->project->user;
+
+    Livewire::actingAs($user)->test(Integrations::class)
+        ->assertSet('form.evolution.mode', 'hosted')
+        ->assertSee('Omni Leads server')
+        ->call('save', 'evolution')
+        ->assertHasNoErrors()
+        ->call('connectPhone')
+        ->call('checkPhone')
+        ->assertSee('WhatsApp connected · +5511900001111');
+
+    $credentials = $user->fresh()->integration(IntegrationProvider::Evolution)->credentials;
+    expect($credentials)->not->toHaveKeys(['base_url', 'key'])
+        ->and($credentials['mode'])->toBe('hosted')
+        ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeTrue();
+
+    (new SendWhatsAppJob($lead->id, 'Oi', 'd-1'))->handle(app(EvolutionClient::class));
+
+    Http::assertSent(fn (Request $r) => $r->url() === 'https://omni-evo.test/instance/create' && $r->hasHeader('apikey', 'omni-global'));
+    Http::assertSent(fn (Request $r) => $r->url() === "https://omni-evo.test/message/sendText/{$credentials['instance']}");
+});
+
+test('trocar do servidor próprio para o do Omni Leads apaga a instância antiga e pede novo pareamento', function () {
+    config()->set('enrichment.evolution.base_url', 'https://omni-evo.test');
+    config()->set('enrichment.evolution.key', 'omni-global');
+    Http::fake(['https://evo.test/instance/delete/main' => Http::response(['status' => 'SUCCESS'])]);
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
+
+    Livewire::actingAs($user)->test(Integrations::class)
+        ->assertSet('form.evolution.mode', 'own')
+        ->set('form.evolution.mode', 'hosted')
+        ->call('save', 'evolution')
+        ->assertSee('Connect phone');
+
+    Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && $r->url() === 'https://evo.test/instance/delete/main');
+    expect($user->fresh()->integration(IntegrationProvider::Evolution)->credentials)->toBe(['mode' => 'hosted']);
 });
 
 test('remover o Evolution apaga a instância no servidor', function () {

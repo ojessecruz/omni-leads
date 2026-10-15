@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Integrations\Exceptions\IntegrationException;
 use App\Domains\Integrations\IntegrationVerifier;
 use App\Domains\Integrations\WhatsAppPairing;
@@ -43,6 +44,12 @@ class Integrations extends Component
                 $this->form[$provider->value][$name] = $field['secret'] ? '' : (string) ($saved[$name] ?? '');
             }
         }
+
+        // Omni Leads' server is the default when it exists and the user has not brought their own.
+        $evolution = $user->integration(IntegrationProvider::Evolution);
+        $this->form['evolution']['mode'] = $evolution
+            ? ($evolution->credentials['mode'] ?? 'own')
+            : (app(EvolutionClient::class)->hostedAvailable() ? 'hosted' : 'own');
     }
 
     public function save(string $provider, IntegrationVerifier $verifier): void
@@ -50,6 +57,12 @@ class Integrations extends Component
         $provider = $this->provider($provider);
         $user = Auth::user();
         $current = $user->integration($provider)->credentials ?? [];
+
+        if ($provider === IntegrationProvider::Evolution && ($this->form['evolution']['mode'] ?? 'own') === 'hosted') {
+            $this->useHostedEvolution($current);
+
+            return;
+        }
 
         $rules = [];
         foreach ($provider->fields() as $name => $field) {
@@ -65,10 +78,11 @@ class Integrations extends Component
             $credentials[$name] = $value !== '' ? $value : (string) ($current[$name] ?? '');
         }
 
-        // The paired phone lives on that server: keep it only while the server stays the same.
-        $sameServer = $provider === IntegrationProvider::Evolution && rtrim($current['base_url'] ?? '', '/') === rtrim($credentials['base_url'], '/');
-        if ($sameServer) {
-            $credentials += array_diff_key($current, $provider->fields());
+        $sameServer = true;
+        if ($provider === IntegrationProvider::Evolution) {
+            // The paired phone lives on that server: keep it only while the server stays the same.
+            $sameServer = ($current['mode'] ?? 'own') === 'own' && rtrim($current['base_url'] ?? '', '/') === rtrim($credentials['base_url'], '/');
+            $credentials = ['mode' => 'own', ...$credentials, ...($sameServer ? array_diff_key($current, $credentials, ['mode' => true]) : [])];
         }
 
         try {
@@ -78,6 +92,10 @@ class Integrations extends Component
             $this->addError("form.{$provider->value}.{$field}", __('Could not connect: :reason', ['reason' => $e->getMessage()]));
 
             return;
+        }
+
+        if ($provider === IntegrationProvider::Evolution && ! $sameServer) {
+            $this->forgetPairedPhone();
         }
 
         $user->integrations()->updateOrCreate(['provider' => $provider], ['credentials' => $credentials, 'verified_at' => now()]);
@@ -92,6 +110,39 @@ class Integrations extends Component
         Flux::toast(variant: 'success', text: $provider === IntegrationProvider::Evolution && ! $provider->isUsable($credentials)
             ? __('Evolution server connected. Now connect your phone.')
             : __(':provider connected.', ['provider' => $provider->label()]));
+    }
+
+    /** @param  array<string, string>  $current */
+    protected function useHostedEvolution(array $current): void
+    {
+        if (! app(EvolutionClient::class)->hostedAvailable()) {
+            $this->addError('form.evolution.mode', __('Omni Leads does not offer a WhatsApp server here. Use your own.'));
+
+            return;
+        }
+
+        $this->whatsappQr = null;
+
+        // Coming from the user's own server: that instance is not on ours, start over.
+        $sameServer = ($current['mode'] ?? 'own') === 'hosted';
+        $credentials = $sameServer ? $current : ['mode' => 'hosted'];
+
+        if (! $sameServer) {
+            $this->forgetPairedPhone();
+        }
+
+        Auth::user()->integrations()->updateOrCreate(['provider' => IntegrationProvider::Evolution], ['credentials' => $credentials, 'verified_at' => now()]);
+        Auth::user()->unsetRelation('integrations');
+
+        Flux::toast(variant: 'success', text: __('Using the Omni Leads WhatsApp server. Now connect your phone.'));
+    }
+
+    /** Deletes the instance on the server being left, so no orphan stays paired there. */
+    protected function forgetPairedPhone(): void
+    {
+        if ($integration = Auth::user()->integration(IntegrationProvider::Evolution)) {
+            app(WhatsAppPairing::class)->forget($integration);
+        }
     }
 
     public function connectPhone(WhatsAppPairing $pairing): void
@@ -191,6 +242,9 @@ class Integrations extends Component
         }
 
         $this->form[$provider->value] = array_map(fn () => '', $provider->fields());
+        if ($provider === IntegrationProvider::Evolution) {
+            $this->form['evolution']['mode'] = app(EvolutionClient::class)->hostedAvailable() ? 'hosted' : 'own';
+        }
 
         Flux::toast(text: __(':provider disconnected.', ['provider' => $provider->label()]));
     }
@@ -208,6 +262,7 @@ class Integrations extends Component
             'groups' => collect(IntegrationProvider::cases())->groupBy(fn (IntegrationProvider $p) => $p->group()),
             'connected' => Auth::user()->integrations->keyBy(fn (Integration $i) => $i->provider->value),
             'whatsapp' => Auth::user()->integration(IntegrationProvider::Evolution)?->credentials,
+            'hostedWhatsApp' => app(EvolutionClient::class)->hostedAvailable(),
         ]);
     }
 }

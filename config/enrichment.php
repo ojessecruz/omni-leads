@@ -18,6 +18,10 @@ return [
     ],
 
     'evolution' => [
+        // Omni Leads' own Evolution server, offered to users who do not bring one.
+        // Leave blank to require every user to bring their own server.
+        'base_url' => rtrim((string) env('EVOLUTION_BASE_URL', ''), '/'),
+        'key' => env('EVOLUTION_API_KEY'),
         'requests_per_minute' => (int) env('EVOLUTION_RPM', 60),
         'cost_per_request' => (float) env('EVOLUTION_COST', 0),
     ],

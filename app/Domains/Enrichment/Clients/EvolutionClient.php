@@ -14,13 +14,21 @@ use RuntimeException;
  * Step 3: Evolution API — checks whether the phone has WhatsApp, and sends WhatsApp messages.
  * POST {base}/chat/whatsappNumbers/{instance} { numbers: [...] } → [{ jid, exists, number }]
  *
- * The user gives the server URL and global key; the app creates one instance per user
- * and pairs it with the user's phone by QR code (Settings > Integrations).
+ * The server is either Omni Leads' own (base_url/key from config) or the user's (credentials
+ * override them). Either way the app creates one instance per user and pairs it with the
+ * user's phone by QR code (Settings > Integrations). Throttled per instance: the limit is
+ * about the WhatsApp number, not the server.
  */
 class EvolutionClient
 {
     /** @param  array<string, mixed>  $config */
     public function __construct(private array $config) {}
+
+    /** Omni Leads runs its own Evolution server that users can pair with (checked on the unbound client). */
+    public function hostedAvailable(): bool
+    {
+        return filled($this->config['base_url'] ?? null) && filled($this->config['key'] ?? null);
+    }
 
     /** @param  array<string, string>  $credentials  the user's server URL, global key and paired instance (BYOK) */
     public function withCredentials(array $credentials): self
@@ -215,7 +223,7 @@ class EvolutionClient
     {
         $rpm = max(1, (int) ($this->config['requests_per_minute'] ?? 60));
 
-        while (! RateLimiter::attempt('enrichment:evolution:'.md5((string) $this->config['key']), $rpm, fn () => true, 60)) {
+        while (! RateLimiter::attempt('enrichment:evolution:'.md5($this->config['base_url'].'|'.$this->config['instance']), $rpm, fn () => true, 60)) {
             usleep(250_000);
         }
     }
