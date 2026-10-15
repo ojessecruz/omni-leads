@@ -17,15 +17,16 @@ class GooglePlacesMapper implements QueryMapper
     public function map(IcpCriteria $criteria): array
     {
         $queries = [];
+        $country = count($criteria->countries) === 1 ? $criteria->countries[0] : null;
 
         foreach ($criteria->keywords as $keyword) {
             if ($criteria->hasLocalities()) {
                 foreach ($criteria->regions as $region) {
                     $queries[] = [
-                        'text' => "{$keyword} in {$region}",
+                        'text' => "{$keyword} in ".$this->withCountry($region, $country),
                         'keyword' => $keyword,
                         'region' => $region,
-                        'region_code' => null,
+                        'region_code' => $country ? strtolower($country) : null,
                     ];
                 }
 
@@ -34,7 +35,7 @@ class GooglePlacesMapper implements QueryMapper
                         'text' => $keyword,
                         'keyword' => $keyword,
                         'region' => $area->displayName(),
-                        'region_code' => count($criteria->countries) === 1 ? strtolower($criteria->countries[0]) : null,
+                        'region_code' => $country ? strtolower($country) : null,
                         'area' => $area->toArray(),
                     ];
                 }
@@ -53,6 +54,20 @@ class GooglePlacesMapper implements QueryMapper
         }
 
         return $queries;
+    }
+
+    /**
+     * Pins an ambiguous region to the ICP's only country ("SC" alone resolves to South Carolina).
+     */
+    private function withCountry(string $region, ?string $country): string
+    {
+        if ($country === null) {
+            return $region;
+        }
+
+        $name = Countries::name($country);
+
+        return str_contains(mb_strtolower($region), mb_strtolower($name)) ? $region : "{$region}, {$name}";
     }
 
     public function unsupported(IcpCriteria $criteria): array

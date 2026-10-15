@@ -85,6 +85,14 @@ final readonly class IcpCriteria implements Arrayable, JsonSerializable
         return in_array(strtoupper($country), $this->countries, true);
     }
 
+    /** False only when the lead's country is known and outside the ICP countries. */
+    public function acceptsCountry(?string $country): bool
+    {
+        $country = strtoupper((string) $country);
+
+        return $this->countries === [] || in_array($country, ['', 'XX'], true) || $this->includesCountry($country);
+    }
+
     /** Signals that can only be evaluated after discovery (filterable). */
     public function hasSignals(): bool
     {
