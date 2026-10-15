@@ -140,6 +140,18 @@
             @endif
         </x-ui.panel>
 
+        <x-ui.panel :eyebrow="__('Outbound')" :title="__('Email template')">
+            <p class="text-sm text-zinc-400">{{ __('First cold email, filled for each lead and sent with it to the connector. Placeholders:') }} @foreach ($placeholders as $p)<code wire:key="email-ph-{{ $loop->index }}">{{ $p }}</code>{{ $loop->last ? '' : ', ' }}@endforeach.</p>
+            @if ($messageTags)
+                <p class="mt-2 text-sm text-zinc-400">{!! __('In the :connector sequence step, use :subject as the subject and :message as the body.', ['connector' => e($outboundLabel), 'subject' => '<code class="text-signal">'.e($messageTags['subject']).'</code>', 'message' => '<code class="text-signal">'.e($messageTags['message']).'</code>']) !!}</p>
+            @endif
+            <form wire:submit="saveEmailTemplate" class="mt-5 space-y-4">
+                <flux:input wire:model="emailSubject" :label="__('Subject')" />
+                <flux:textarea wire:model="emailBody" rows="8" :label="__('Message')" />
+                <flux:button type="submit" variant="primary">{{ __('Save template') }}</flux:button>
+            </form>
+        </x-ui.panel>
+
         <x-ui.panel :eyebrow="__('Outbound')" :title="__('WhatsApp template')">
             <p class="text-sm text-zinc-400">{{ __('First message sent through Evolution from the lead page. Placeholders:') }} @foreach ($placeholders as $p)<code>{{ $p }}</code>{{ $loop->last ? '' : ', ' }}@endforeach.</p>
             <form wire:submit="saveTemplate" class="mt-5 space-y-4">

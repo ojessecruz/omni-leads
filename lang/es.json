@@ -494,5 +494,13 @@
     "This lead cannot be sent: it needs an email and a connector with a campaign.": "No se puede enviar este lead: necesita email y un conector con campaña.",
     "Unsubscribed": "Se dio de baja",
     "Webhook registered.": "Webhook registrado.",
-    "paused": "pausada"
+    "paused": "pausada",
+    "{company} + a quick idea": "{company} + una idea rápida",
+    "Hi {first_name},": "Hola, {first_name}:",
+    "I came across {company} in {city} and thought it made sense to reach out.": "Encontré {company} en {city} y pensé que tenía sentido escribirte.",
+    "Can I send you two lines about what we do?": "¿Te puedo mandar dos líneas sobre lo que hacemos?",
+    "Email template": "Plantilla de email",
+    "First cold email, filled for each lead and sent with it to the connector. Placeholders:": "Primer cold email, completado para cada lead y enviado con él al conector. Marcadores:",
+    "In the :connector sequence step, use :subject as the subject and :message as the body.": "En el paso de la secuencia de :connector, usa :subject como asunto y :message como cuerpo.",
+    "Subject": "Asunto"
 }

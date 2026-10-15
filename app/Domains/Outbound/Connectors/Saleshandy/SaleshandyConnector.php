@@ -27,6 +27,12 @@ class SaleshandyConnector implements OutboundConnector
         'prospect-unsubscribed' => OutboundEventType::Unsubscribed,
     ];
 
+    /** Custom fields that carry the filled template (Saleshandy merge tags are {{Label}}). */
+    public const array MESSAGE_FIELDS = [
+        'subject' => ['label' => 'Omni Subject', 'fieldType' => 'text'],
+        'message' => ['label' => 'Omni Message', 'fieldType' => 'long-text'],
+    ];
+
     /** @var array<string, array<string, mixed>>|null sequences by id, fetched once per instance */
     private ?array $sequences = null;
 
@@ -36,6 +42,14 @@ class SaleshandyConnector implements OutboundConnector
     public function key(): string
     {
         return 'saleshandy';
+    }
+
+    public function messageTags(): array
+    {
+        return [
+            'subject' => '{{'.self::MESSAGE_FIELDS['subject']['label'].'}}',
+            'message' => '{{'.self::MESSAGE_FIELDS['message']['label'].'}}',
+        ];
     }
 
     public function verify(): void
@@ -59,6 +73,8 @@ class SaleshandyConnector implements OutboundConnector
         if (! is_scalar($stepId) || $stepId === '') {
             throw new OutboundException("Saleshandy sequence [{$campaignId}] was not found or has no steps.");
         }
+
+        $this->ensureMessageFields();
 
         $response = $this->send('post', '/sequences/prospects/import-with-field-name', [
             'prospectList' => array_map($this->fields(...), $prospects),
@@ -130,7 +146,22 @@ class SaleshandyConnector implements OutboundConnector
             'City' => $prospect->city,
             'Country' => $prospect->country,
             'Company Domain' => $prospect->website,
+            self::MESSAGE_FIELDS['subject']['label'] => $prospect->subject,
+            self::MESSAGE_FIELDS['message']['label'] => $prospect->message,
         ], fn (string $value) => $value !== '');
+    }
+
+    /** The import only accepts field names that exist, so the template fields are created on first use. */
+    private function ensureMessageFields(): void
+    {
+        $fields = $this->send('get', '/fields', ['systemFields' => 'false'])->json('payload', []);
+        $labels = array_map(fn ($f) => is_array($f) ? (string) ($f['label'] ?? '') : '', is_array($fields) ? $fields : []);
+
+        foreach (self::MESSAGE_FIELDS as $field) {
+            if (! in_array($field['label'], $labels, true)) {
+                $this->send('post', '/fields', $field);
+            }
+        }
     }
 
     /** @return array<string, array<string, mixed>> */

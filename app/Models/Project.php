@@ -20,11 +20,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $current_customers
  * @property string|null $avg_ticket
  * @property string|null $whatsapp_template
+ * @property string|null $email_subject_template
+ * @property string|null $email_template
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read OutboundConnection|null $outboundConnection
  */
-#[Fillable(['user_id', 'name', 'product_description', 'problem', 'current_customers', 'avg_ticket', 'whatsapp_template'])]
+#[Fillable(['user_id', 'name', 'product_description', 'problem', 'current_customers', 'avg_ticket', 'whatsapp_template', 'email_subject_template', 'email_template'])]
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */

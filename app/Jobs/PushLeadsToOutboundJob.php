@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Domains\Outbound\Data\OutboundProspect;
+use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
 use App\Enums\LeadStatus;
 use App\Models\Lead;
@@ -45,21 +46,28 @@ class PushLeadsToOutboundJob implements ShouldQueue
 
         $connector = $connection->connector();
         $driver = $connection->sourceDriver();
+        $project = $connection->project;
 
-        $this->pending($connection)->chunkById((int) config('outbound.push_chunk', 100), function (Collection $leads) use ($connection, $connector, $driver) {
+        $this->pending($connection)->chunkById((int) config('outbound.push_chunk', 100), function (Collection $leads) use ($connection, $connector, $driver, $project) {
             /** @var Collection<int, Lead> $leads */
             $rows = $leads->mapWithKeys(fn (Lead $lead) => [$lead->id => $lead->sources()->firstOrCreate(
                 ['driver' => $driver, 'external_id' => (string) $connection->campaign_id],
                 ['raw_payload' => ['campaign' => $connection->campaign_name, 'queued_at' => now()->toIso8601String()]],
             )]);
 
-            $requestId = $connector->push(
-                (string) $connection->campaign_id,
-                array_values($leads->map(fn (Lead $lead) => OutboundProspect::fromLead($lead))->all()),
-            );
+            $prospects = $leads->mapWithKeys(function (Lead $lead) use ($project) {
+                $email = EmailTemplate::render($project->email_subject_template, $project->email_template, $lead);
 
-            $rows->each(fn (LeadSource $row) => $row->update(['raw_payload' => [
+                return [$lead->id => OutboundProspect::fromLead($lead, $email['subject'], $email['body'])];
+            });
+
+            $requestId = $connector->push((string) $connection->campaign_id, array_values($prospects->all()));
+
+            // The filled copy stays on the lead, so what was sent can be checked later.
+            $rows->each(fn (LeadSource $row, int $leadId) => $row->update(['raw_payload' => [
                 ...$row->raw_payload,
+                'subject' => $prospects[$leadId]->subject,
+                'message' => $prospects[$leadId]->message,
                 'request_id' => $requestId,
                 'pushed_at' => now()->toIso8601String(),
             ]]));

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Projects;
 
+use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
@@ -33,6 +34,10 @@ class Settings extends Component
 
     public ?string $revealedSecret = null;
 
+    public string $emailSubject = '';
+
+    public string $emailBody = '';
+
     public string $connector = 'saleshandy';
 
     public string $apiKey = '';
@@ -52,6 +57,8 @@ class Settings extends Component
 
         $this->project = $project;
         $this->whatsappTemplate = $project->whatsapp_template ?? WhatsAppTemplate::default();
+        $this->emailSubject = $project->email_subject_template ?? EmailTemplate::defaultSubject();
+        $this->emailBody = $project->email_template ?? EmailTemplate::defaultBody();
 
         if ($connection = $project->outboundConnection) {
             $this->connector = $connection->connector;
@@ -175,6 +182,20 @@ class Settings extends Component
         Flux::toast(variant: 'success', text: __('Template saved.'));
     }
 
+    public function saveEmailTemplate(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->validate([
+            'emailSubject' => ['required', 'string', 'max:200'],
+            'emailBody' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $this->project->update(['email_subject_template' => $this->emailSubject, 'email_template' => $this->emailBody]);
+
+        Flux::toast(variant: 'success', text: __('Template saved.'));
+    }
+
     public function addWebhook(): void
     {
         Gate::authorize('update', $this->project);
@@ -286,6 +307,7 @@ class Settings extends Component
             'outbound' => $outbound,
             'connectors' => $resolver->options(),
             'outboundLabel' => $outbound ? $resolver->label($outbound->connector) : null,
+            'messageTags' => $outbound ? $resolver->resolve($outbound->connector, [])->messageTags() : null,
             'webhookIsLocal' => $outbound ? self::isLocalUrl(route('outbound.webhook', [$outbound, $outbound->webhook_secret])) : false,
             'webhooks' => $this->project->webhooks()->latest()->get(),
             'events' => Webhook::labels(),

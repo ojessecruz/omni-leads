@@ -52,12 +52,13 @@ test('campanhas vêm das sequências com nome e estado', function () {
 
 test('push importa no primeiro passo da sequência com os campos por nome', function () {
     Http::fake([
+        SH.'/fields*' => Http::response(['payload' => [['id' => 'F1', 'label' => 'Omni Subject'], ['id' => 'F2', 'label' => 'Omni Message']]]),
         SH.'/sequences/prospects/*' => Http::response(['payload' => ['requestId' => 'REQ9']], 201),
         SH.'/sequences*' => Http::response(sequencesResponse()),
     ]);
 
     $requestId = saleshandy()->push('SEQ1', [
-        new OutboundProspect(email: 'ana@clinica.com', firstName: 'Ana', company: 'Clínica Bela', city: 'São Paulo', country: 'BR'),
+        new OutboundProspect(email: 'ana@clinica.com', firstName: 'Ana', company: 'Clínica Bela', city: 'São Paulo', country: 'BR', subject: 'Oi', message: "Linha 1\n\nLinha 2"),
     ]);
 
     expect($requestId)->toBe('REQ9');
@@ -66,7 +67,25 @@ test('push importa no primeiro passo da sequência com os campos por nome', func
         && $r->url() === SH.'/sequences/prospects/import-with-field-name'
         && $r['stepId'] === 'STEP1'
         && $r['conflictAction'] === 'addMissingFields'
-        && $r['prospectList'] === [['Email' => 'ana@clinica.com', 'First Name' => 'Ana', 'Company' => 'Clínica Bela', 'City' => 'São Paulo', 'Country' => 'BR']]);
+        && $r['prospectList'] === [['Email' => 'ana@clinica.com', 'First Name' => 'Ana', 'Company' => 'Clínica Bela', 'City' => 'São Paulo', 'Country' => 'BR', 'Omni Subject' => 'Oi', 'Omni Message' => "Linha 1\n\nLinha 2"]]);
+    Http::assertNotSent(fn (Request $r) => $r->method() === 'POST' && $r->url() === SH.'/fields');
+});
+
+test('push cria os campos do template que ainda não existem no Saleshandy', function () {
+    Http::fake([
+        SH.'/fields*' => fn (Request $r) => $r->method() === 'GET'
+            ? Http::response(['payload' => [['id' => 'F1', 'label' => 'Omni Subject']]])
+            : Http::response(['payload' => ['id' => 'F2']], 201),
+        SH.'/sequences/prospects/*' => Http::response(['payload' => ['requestId' => 'REQ9']], 201),
+        SH.'/sequences*' => Http::response(sequencesResponse()),
+    ]);
+
+    saleshandy()->push('SEQ1', [new OutboundProspect(email: 'a@b.com')]);
+
+    Http::assertSent(fn (Request $r) => $r->method() === 'GET' && str_starts_with($r->url(), SH.'/fields') && $r['systemFields'] === 'false');
+    Http::assertSent(fn (Request $r) => $r->method() === 'POST' && $r->url() === SH.'/fields' && $r['label'] === 'Omni Message' && $r['fieldType'] === 'long-text');
+    Http::assertNotSent(fn (Request $r) => $r->method() === 'POST' && $r->url() === SH.'/fields' && $r['label'] === 'Omni Subject');
+    expect(saleshandy()->messageTags())->toBe(['subject' => '{{Omni Subject}}', 'message' => '{{Omni Message}}']);
 });
 
 test('push para sequência sem passos falha sem chamar o import', function () {

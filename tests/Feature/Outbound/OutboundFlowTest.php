@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Leads\LeadScorer;
+use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
@@ -112,24 +113,31 @@ test('desconectar remove a conexão', function () {
 
 test('push envia só leads com e-mail ainda não enviados e registra em lead_sources', function () {
     Http::fake([
+        SH_API.'/fields*' => Http::response(['payload' => [['label' => 'Omni Subject'], ['label' => 'Omni Message']]]),
         SH_API.'/sequences/prospects/*' => Http::response(['payload' => ['requestId' => 'REQ1']], 201),
         SH_API.'/sequences*' => Http::response(shSequences()),
     ]);
     $connection = OutboundConnection::factory()->create();
+    $connection->project->update(['email_subject_template' => 'Ideia para {company}', 'email_template' => "Oi {first_name},\n\nvi a {company} em {city}."]);
     $icp = Icp::factory()->for($connection->project)->create();
-    $ready = Lead::factory()->for($icp)->create(['email' => 'ana@bela.com', 'status' => LeadStatus::Qualified]);
+    $ready = Lead::factory()->for($icp)->create(['name' => 'Ana Souza', 'company_name' => 'Spa Ana', 'city' => 'Campinas', 'email' => 'ana@bela.com', 'status' => LeadStatus::Qualified]);
     Lead::factory()->for($icp)->create(['email' => null, 'status' => LeadStatus::Qualified]);
     Lead::factory()->for($icp)->create(['email' => 'novo@x.com', 'status' => LeadStatus::New]);
 
     (new PushLeadsToOutboundJob($connection->id))->handle();
     (new PushLeadsToOutboundJob($connection->id))->handle(); // re-run sends nothing
 
-    Http::assertSentCount(2); // one sequences lookup + one import
-    Http::assertSent(fn (Request $r) => str_contains($r->url(), 'import-with-field-name') && $r['prospectList'][0]['Email'] === 'ana@bela.com' && count($r['prospectList']) === 1);
+    Http::assertSentCount(3); // sequences lookup + fields lookup + one import
+    Http::assertSent(fn (Request $r) => str_contains($r->url(), 'import-with-field-name')
+        && count($r['prospectList']) === 1
+        && $r['prospectList'][0]['Email'] === 'ana@bela.com'
+        && $r['prospectList'][0]['Omni Subject'] === 'Ideia para Spa Ana'
+        && $r['prospectList'][0]['Omni Message'] === "Oi Ana,\n\nvi a Spa Ana em Campinas.");
 
     $row = $ready->sources()->where('driver', 'outbound_saleshandy')->first();
     expect($row->external_id)->toBe('SEQ1')
         ->and($row->raw_payload['request_id'])->toBe('REQ1')
+        ->and($row->raw_payload['subject'])->toBe('Ideia para Spa Ana')
         ->and($connection->fresh()->last_error)->toBeNull();
 });
 
@@ -212,4 +220,25 @@ test('página do lead envia para o conector quando há campanha e e-mail', funct
 
     $noEmail = Lead::factory()->for(Icp::factory()->for($connection->project))->create(['email' => null]);
     Livewire::actingAs($connection->project->user)->test(Show::class, ['lead' => $noEmail])->assertDontSee('Send to Saleshandy');
+});
+
+test('template de e-mail salva no projeto e mostra as merge tags do conector', function () {
+    Http::fake([SH_API.'/sequences*' => Http::response(shSequences())]);
+    $connection = OutboundConnection::factory()->create();
+    $project = $connection->project;
+
+    Livewire::actingAs($project->user)->test(Settings::class, ['project' => $project])
+        ->assertSet('emailSubject', '{company} + a quick idea')
+        ->assertSee('{{Omni Message}}')
+        ->set('emailSubject', 'Oi {primeiro_nome}')
+        ->set('emailBody', '')
+        ->call('saveEmailTemplate')
+        ->assertHasErrors('emailBody')
+        ->set('emailBody', 'Corpo para {empresa}')
+        ->call('saveEmailTemplate')
+        ->assertHasNoErrors();
+
+    expect($project->fresh()->email_subject_template)->toBe('Oi {primeiro_nome}')
+        ->and(EmailTemplate::render('Oi {primeiro_nome}', 'Corpo para {empresa}', Lead::factory()->make(['name' => 'Ana Souza', 'company_name' => 'Spa Ana'])))
+        ->toBe(['subject' => 'Oi Ana', 'body' => 'Corpo para Spa Ana']);
 });

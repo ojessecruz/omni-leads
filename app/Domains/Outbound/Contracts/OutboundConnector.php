@@ -16,6 +16,14 @@ interface OutboundConnector
     /** Stable identifier stored in outbound_connections.connector, e.g. 'saleshandy'. */
     public function key(): string;
 
+    /**
+     * Merge tags the user puts in the tool's sequence step to use the subject and
+     * message filled by Omni Leads.
+     *
+     * @return array{subject: string, message: string}
+     */
+    public function messageTags(): array;
+
     /** @throws OutboundException when the key is rejected or the API is unreachable */
     public function verify(): void;
 

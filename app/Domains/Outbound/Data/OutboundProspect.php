@@ -5,7 +5,7 @@ namespace App\Domains\Outbound\Data;
 use App\Models\Lead;
 use Illuminate\Support\Str;
 
-/** What a connector receives for each lead. */
+/** What a connector receives for each lead, with the e-mail template already filled in. */
 final readonly class OutboundProspect
 {
     public function __construct(
@@ -17,13 +17,15 @@ final readonly class OutboundProspect
         public string $website = '',
         public string $city = '',
         public string $country = '',
+        public string $subject = '',
+        public string $message = '',
     ) {}
 
     /**
      * The person's name only when the lead has one apart from the company
      * (a Places lead's name is the business, which makes a bad "Hi {first name}").
      */
-    public static function fromLead(Lead $lead): self
+    public static function fromLead(Lead $lead, string $subject = '', string $message = ''): self
     {
         $person = trim((string) $lead->name);
         $company = trim((string) ($lead->company_name ?: $lead->name));
@@ -41,6 +43,8 @@ final readonly class OutboundProspect
             website: (string) $lead->domain,
             city: (string) $lead->city,
             country: $lead->country,
+            subject: $subject,
+            message: $message,
         );
     }
 
@@ -58,10 +62,12 @@ final readonly class OutboundProspect
             website: $string('website'),
             city: $string('city'),
             country: $string('country'),
+            subject: $string('subject'),
+            message: $string('message'),
         );
     }
 
-    /** @return array{email: string, first_name: string, last_name: string, company: string, phone: string, website: string, city: string, country: string} */
+    /** @return array{email: string, first_name: string, last_name: string, company: string, phone: string, website: string, city: string, country: string, subject: string, message: string} */
     public function toArray(): array
     {
         return [
@@ -73,6 +79,8 @@ final readonly class OutboundProspect
             'website' => $this->website,
             'city' => $this->city,
             'country' => $this->country,
+            'subject' => $this->subject,
+            'message' => $this->message,
         ];
     }
 }
