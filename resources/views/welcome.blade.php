@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+@php($sample = \App\Support\LandingSample::for(app()->getLocale()))
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark scroll-smooth">
 <head>
     <meta charset="utf-8">
@@ -79,7 +80,7 @@
         <div class="lg:col-span-5" data-reveal>
             <div class="overflow-hidden rounded-2xl border border-white/10 bg-panel shadow-glow">
                 <div class="flex items-center justify-between border-b border-white/6 px-4 py-2.5">
-                    <span class="font-mono text-2xs text-zinc-500">discovery.log — google_places · cnpj_br</span>
+                    <span class="font-mono text-2xs text-zinc-500">discovery.log — {{ $sample['sources'] }}</span>
                     <span class="font-mono flex items-center gap-1.5 text-2xs text-signal"><span class="inline-block size-1.5 rounded-full bg-signal"></span>{{ __('live') }}</span>
                 </div>
                 <div id="log" class="font-mono min-h-[300px] overflow-hidden space-y-1.5 px-4 py-4 text-xs leading-5"></div>
@@ -162,10 +163,10 @@
             <div class="rounded-2xl border border-signal/30 bg-panel p-5">
                 <p class="font-mono mb-3 flex items-center justify-between text-2xs text-zinc-500"><span>answer.json</span><span class="text-signal">{{ __('valid') }} ✓</span></p>
 <pre class="font-mono whitespace-pre-wrap text-xs leading-5 text-zinc-300">{
-  <span class="text-zinc-500">"industry"</span>: "aesthetics",
-  <span class="text-zinc-500">"keywords"</span>: ["aesthetic clinic", "day spa"],
-  <span class="text-zinc-500">"countries"</span>: ["BR", "PT"],
-  <span class="text-zinc-500">"regions"</span>: ["São Paulo", "Lisboa"],
+  <span class="text-zinc-500">"industry"</span>: "{{ $sample['icp']['industry'] }}",
+  <span class="text-zinc-500">"keywords"</span>: {{ '["'.implode('", "', $sample['icp']['keywords']).'"]' }},
+  <span class="text-zinc-500">"countries"</span>: {{ '["'.implode('", "', $sample['icp']['countries']).'"]' }},
+  <span class="text-zinc-500">"regions"</span>: {{ '["'.implode('", "', $sample['icp']['regions']).'"]' }},
   <span class="text-zinc-500">"company_size"</span>: "1-10",
   <span class="text-zinc-500">"job_titles"</span>: ["owner", "founder"],
   <span class="text-zinc-500">"signals"</span>: {
@@ -186,8 +187,8 @@
             <div class="rounded-2xl border border-white/10 bg-panel p-6 md:p-8">
                 <div class="flex items-start justify-between">
                     <div>
-                        <p class="text-lg font-medium text-white">Clínica Bella Estética</p>
-                        <p class="font-mono text-2xs text-zinc-500">bellaestetica.com.br · São Paulo, BR · google_places + cnpj_br</p>
+                        <p class="text-lg font-medium text-white">{{ $sample['lead']['name'] }}</p>
+                        <p class="font-mono text-2xs text-zinc-500">{{ $sample['lead']['domain'] }} · {{ $sample['lead']['city'] }}, {{ $sample['lead']['country'] }} · {{ $sample['lead']['sources'] }}</p>
                     </div>
                     <div class="text-right">
                         <span class="display font-mono text-5xl font-medium text-signal" id="score-num">0</span><span class="font-mono text-sm text-zinc-500">/100</span>
@@ -195,11 +196,11 @@
                 </div>
                 <ul class="mt-6 divide-y divide-white/6 text-sm">
                     @foreach ([
-                        [__('Country within ICP'), 'BR', 20, true],
-                        [__('Has its own website'), 'bellaestetica.com.br', 20, true],
+                        [__('Country within ICP'), $sample['lead']['country'], 20, true],
+                        [__('Has its own website'), $sample['lead']['domain'], 20, true],
                         [__('≥ :n reviews', ['n' => 20]), __(':n reviews', ['n' => 120]), 15, true],
                         [__('Rating ≥ :n', ['n' => '4.3']), __('rating :n', ['n' => '4.8']), 15, true],
-                        [__('Email found'), 'contato@bellaestetica.com.br', 15, true],
+                        [__('Email found'), $sample['lead']['email'], 15, true],
                         [__('Valid WhatsApp'), __('not verified'), 15, false],
                     ] as [$label, $detail, $w, $met])
                         <li class="flex items-center justify-between gap-4 py-2.5">
@@ -241,8 +242,8 @@
                 <p class="mt-2 max-w-md text-zinc-400">{{ __('lead.qualified, lead.contacted, lead.enriched, search.finished. HMAC-signed, five retries with backoff, auto-pause after repeated failures. n8n and Make just work.') }}</p>
                 <pre class="font-mono mt-6 overflow-x-auto rounded-xl border border-white/6 bg-black/40 p-4 text-xs leading-5 text-zinc-400">{
   "event": "lead.qualified",
-  "data": { "id": 4812, "company_name": "Clínica Bella Estética",
-            "score": 85, "email": "contato@…", "whatsapp_valid": true }
+  "data": { "id": 4812, "company_name": "{{ $sample['lead']['name'] }}",
+            "score": 85, "email": "{{ strstr($sample['lead']['email'], '@', true) }}@…", "whatsapp_valid": true }
 }</pre>
             </div>
             <div class="rounded-2xl border border-white/10 bg-panel p-7 md:col-span-2" data-reveal>
@@ -302,18 +303,7 @@
     document.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
 
     // Live discovery log
-    const rows = [
-        ['google_places', 'Clínica Bella Estética', 'São Paulo, BR', 85],
-        ['google_places', 'Day Spa Moema', 'São Paulo, BR', 70],
-        ['cnpj_br', 'Harmoniza Face Ltda', 'Campinas, BR', 55],
-        ['google_places', 'Estética Lisboa Premium', 'Lisboa, PT', 70],
-        ['apollo', 'Ana Silva · Owner @ Spa Ana', 'Miami, US', 60],
-        ['cnpj_br', 'Corte & Cia ME', 'Guarulhos, BR', 35],
-        ['google_places', 'Studio Pele', 'Santos, BR', 45],
-        ['hunter', '↳ contato@bellaestetica.com.br', '+15 email', null],
-        ['evolution', '↳ +55 11 99999-0000 · WhatsApp ✓', '+15 whatsapp', null],
-        ['google_places', 'Espaço Renova', 'Curitiba, BR', 80],
-    ];
+    const rows = @js($sample['log']);
     const log = document.getElementById('log');
     const status = document.getElementById('log-status');
     const labels = { found: @js(__('found')), enriched: @js(__('enriched')), qualified: @js(__('qualified')) };
