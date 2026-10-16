@@ -7,6 +7,15 @@
       @if ($theme === \App\Enums\Theme::System) data-theme-system @endif>
     <head>
         @include('partials.head')
+        @if (config('broadcasting.default') === 'reverb')
+            <script>
+                window.omniEcho = @js([
+                    'key' => config('broadcasting.connections.reverb.key'),
+                    'userId' => auth()->id(),
+                    ...config('broadcasting.connections.reverb.browser'),
+                ]);
+            </script>
+        @endif
         @if ($theme === \App\Enums\Theme::System)
             {{-- Follow the OS before first paint (no flash) and when it changes. --}}
             <script>

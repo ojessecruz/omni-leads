@@ -1,4 +1,5 @@
 # Production image: nginx + php-fpm + Horizon + scheduler in one container (supervisord).
+# The same image runs the Reverb WebSocket server with CONTAINER_ROLE=reverb (port 8080).
 # Runtime config comes from environment variables (Easypanel "Environment" tab).
 
 # --- PHP dependencies -------------------------------------------------------
@@ -48,10 +49,11 @@ ENV APP_ENV=production \
     LOG_CHANNEL=stderr \
     CONTAINER_ROLE=all
 
-EXPOSE 80
+EXPOSE 80 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD wget -qO- http://127.0.0.1/up > /dev/null || exit 1
+    CMD if [ "$CONTAINER_ROLE" = "reverb" ]; then url=http://127.0.0.1:8080/up; else url=http://127.0.0.1/up; fi; \
+        wget -qO- "$url" > /dev/null || exit 1
 
 ENTRYPOINT ["entrypoint"]
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]

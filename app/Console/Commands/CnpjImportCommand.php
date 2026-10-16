@@ -31,6 +31,13 @@ class CnpjImportCommand extends Command
     {
         $type = $this->argument('type');
         $path = $this->argument('path');
+
+        if (! is_string($type) || ! is_string($path)) {
+            $this->error('Pass the file type and the path to the CSV.');
+
+            return self::FAILURE;
+        }
+
         $chunk = max(100, (int) $this->option('chunk'));
 
         $count = match ($type) {
