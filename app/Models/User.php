@@ -73,6 +73,12 @@ class User extends Authenticatable implements PasskeyUser
             : $initials;
     }
 
+    /** Admins come from ADMIN_EMAILS (config app.admins), not from the database. */
+    public function isAdmin(): bool
+    {
+        return in_array(strtolower($this->email), config('app.admins', []), true);
+    }
+
     /** @return HasMany<Project, $this> */
     public function projects(): HasMany
     {

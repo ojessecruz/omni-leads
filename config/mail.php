@@ -115,4 +115,22 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Every markdown email (invitations, password resets, verification) uses
+    | the Omni Leads theme in resources/views/vendor/mail.
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'omni',
+
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

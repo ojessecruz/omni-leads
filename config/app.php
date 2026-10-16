@@ -86,6 +86,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Admins
+    |--------------------------------------------------------------------------
+    |
+    | Comma-separated emails (ADMIN_EMAILS) allowed to invite new users while
+    | public sign-up is closed.
+    |
+    */
+
+    'admins' => array_values(array_filter(array_map(fn (string $email) => strtolower(trim($email)), explode(',', (string) env('ADMIN_EMAILS', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |
