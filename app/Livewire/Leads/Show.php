@@ -43,7 +43,7 @@ class Show extends Component
 
         // The modal only exists while the lead has no conversation: this is always a first contact.
         try {
-            $queue($this->lead, $this->whatsappText);
+            $at = $queue($this->lead, $this->whatsappText);
         } catch (RuntimeException $e) {
             $this->addError('whatsappText', $e->getMessage());
 
@@ -51,7 +51,7 @@ class Show extends Component
         }
 
         Flux::modal('whatsapp')->close();
-        Flux::toast(variant: 'success', text: __('Message queued. The lead will be marked as contacted after sending.'));
+        Flux::toast(variant: 'success', text: QueueFirstContact::feedback($at));
     }
 
     public function setStatus(string $status): void
@@ -126,6 +126,7 @@ class Show extends Component
             'scoring' => $scorer->evaluate($this->lead),
             'canWhatsApp' => $this->lead->phone && $this->lead->project->user->hasIntegration(IntegrationProvider::Evolution),
             'conversation' => $this->lead->whatsappConversations()->where('user_id', $this->lead->project->user_id)->first(),
+            'scheduledWhatsApp' => $this->lead->pendingWhatsAppSends()->latest('id')->value('raw_payload')['scheduled_for'] ?? null,
         ])->title($this->lead->displayName());
     }
 }

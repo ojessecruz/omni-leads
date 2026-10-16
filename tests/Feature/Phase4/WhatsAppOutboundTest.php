@@ -1,7 +1,7 @@
 <?php
 
+use App\Domains\Integrations\WhatsAppPairing;
 use App\Domains\Outbound\WhatsAppTemplate;
-use App\Domains\WhatsApp\FirstContactLimit;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Jobs\DeliverWebhookJob;
@@ -12,6 +12,7 @@ use App\Models\Icp;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Webhook;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -111,16 +112,14 @@ test('detalhe do lead mostra o botão só com Evolution configurado e enfileira 
 
 });
 
-test('lista de leads envia o primeiro WhatsApp pela linha, com o template e o limite por hora', function () {
+test('lista de leads agenda o primeiro WhatsApp pela linha, com intervalo entre envios e sem agendar duas vezes', function () {
     Queue::fake();
-    $lead = Lead::factory()->create(['phone' => '5511999990000', 'name' => 'Ana Silva', 'whatsapp_valid' => true]);
-    $user = $lead->project->user;
-
-    Livewire::actingAs($user)->test(Index::class)->assertDontSeeHtml('openWhatsApp('.$lead->id.')');
-
+    $this->freezeTime();
+    $lead = Lead::factory()->create(['phone' => '5511999990000', 'name' => 'Ana Silva']);
+    $second = Lead::factory()->create(['icp_id' => $lead->icp_id, 'phone' => '5511999990001']);
     withEvolution($lead);
 
-    $page = Livewire::actingAs($user)->test(Index::class)
+    $page = Livewire::actingAs($lead->project->user)->test(Index::class)
         ->assertSeeHtml('openWhatsApp('.$lead->id.')')
         ->call('openWhatsApp', $lead->id)
         ->assertSet('whatsappLeadId', $lead->id)
@@ -128,17 +127,86 @@ test('lista de leads envia o primeiro WhatsApp pela linha, com o template e o li
         ->set('whatsappText', 'Oi Ana')
         ->call('sendWhatsApp')
         ->assertHasNoErrors()
-        ->assertSet('whatsappLeadId', null);
+        ->assertSet('whatsappLeadId', null)
+        ->assertDontSeeHtml('openWhatsApp('.$lead->id.')');
 
-    Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $lead->id && $j->text === 'Oi Ana');
-
-    // Over the hourly cap of first contacts, nothing else is queued.
-    foreach (range(2, FirstContactLimit::PER_HOUR) as $i) {
-        app(FirstContactLimit::class)->attempt($user);
-    }
+    // The first one goes right away and the lead shows as scheduled.
+    Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $lead->id && $j->text === 'Oi Ana' && $j->delay === null);
+    expect($lead->pendingWhatsAppSends()->count())->toBe(1);
 
     $page->call('openWhatsApp', $lead->id)->call('sendWhatsApp')->assertHasErrors('whatsappText');
+
+    // The next one waits a random 2–6 min gap.
+    $page->call('openWhatsApp', $second->id)->call('sendWhatsApp')->assertHasNoErrors();
+    Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $second->id
+        && $j->delay instanceof DateTimeInterface
+        && $j->delay->getTimestamp() >= now()->addMinutes(2)->getTimestamp()
+        && $j->delay->getTimestamp() <= now()->addMinutes(6)->getTimestamp());
+    Queue::assertPushed(SendWhatsAppJob::class, 2);
+});
+
+test('fila de primeiros contatos cheia recusa o envio', function () {
+    Queue::fake();
+    config()->set('whatsapp.first_contact.per_day', [0 => 1]);
+    config()->set('whatsapp.first_contact.max_days_ahead', 0);
+    $lead = withEvolution(Lead::factory()->create(['phone' => '5511999990000']));
+    $second = Lead::factory()->create(['icp_id' => $lead->icp_id, 'phone' => '5511999990001']);
+
+    Livewire::actingAs($lead->project->user)->test(Index::class)
+        ->call('openWhatsApp', $lead->id)->call('sendWhatsApp')->assertHasNoErrors()
+        ->call('openWhatsApp', $second->id)->call('sendWhatsApp')->assertHasErrors('whatsappText');
+
     Queue::assertPushed(SendWhatsAppJob::class, 1);
+    expect($second->pendingWhatsAppSends()->exists())->toBeFalse();
+});
+
+test('fora do horário comercial o primeiro contato fica para a próxima abertura', function () {
+    Queue::fake();
+    config()->set('whatsapp.business_hours.enabled', true);
+    $this->travelTo(CarbonImmutable::parse('2026-10-17 15:00', 'America/Sao_Paulo')); // Saturday
+    $lead = withEvolution(Lead::factory()->create(['phone' => '5511999990000']));
+
+    Livewire::actingAs($lead->project->user)->test(Index::class)
+        ->call('openWhatsApp', $lead->id)->call('sendWhatsApp')->assertHasNoErrors();
+
+    Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->delay->equalTo(CarbonImmutable::parse('2026-10-19 09:00', 'America/Sao_Paulo')));
+});
+
+test('envio que falha com o celular desconectado pausa o WhatsApp, cancela os agendados e volta ao parear', function () {
+    Queue::fake([DeliverWebhookJob::class]);
+    Http::fake([
+        'https://evo.test/message/sendText/main' => Http::response(['status' => 500, 'error' => 'Internal Server Error', 'response' => ['message' => 'Connection Closed']], 500),
+        'https://evo.test/instance/connectionState/main' => Http::sequence()
+            ->push(['instance' => ['instanceName' => 'main', 'state' => 'close']])
+            ->push(['instance' => ['instanceName' => 'main', 'state' => 'open']]),
+        'https://evo.test/instance/fetchInstances*' => Http::response([['name' => 'main', 'ownerJid' => '5511988887777@s.whatsapp.net']]),
+    ]);
+    $lead = withEvolution(Lead::factory()->create(['phone' => '5511999990000']));
+    $other = Lead::factory()->create(['icp_id' => $lead->icp_id, 'phone' => '5511999990001']);
+    $other->sources()->create(['driver' => 'whatsapp_outbound', 'external_id' => 'd-2', 'raw_payload' => ['text' => 'Oi', 'scheduled_for' => now()->addMinutes(5)->toIso8601String()]]);
+    $user = $lead->project->user;
+
+    app()->call([new SendWhatsAppJob($lead->id, 'Oi', 'd-1'), 'handle']);
+
+    $integration = $user->fresh()->integration(IntegrationProvider::Evolution);
+    expect($integration->credentials)->not->toHaveKey('connected_at')
+        ->and($integration->credentials['disconnected_at'])->not->toBeEmpty()
+        ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeFalse()
+        ->and($lead->sources()->where('external_id', 'd-1')->sole()->raw_payload['error'])->toContain('Connection Closed')
+        ->and($lead->fresh()->status)->toBe(LeadStatus::New)
+        ->and($other->pendingWhatsAppSends()->exists())->toBeFalse();
+
+    // Its job then runs without calling Evolution.
+    app()->call([new SendWhatsAppJob($other->id, 'Oi', 'd-2'), 'handle']);
+    expect($other->sources()->where('external_id', 'd-2')->sole()->raw_payload['cancelled'])->toBeTrue();
+    Http::assertSentCount(2);
+
+    $this->actingAs($user->fresh())->get(route('leads.index'))->assertOk()->assertSee(__('Reconnect'));
+
+    // Paired again: the warning goes away and the warm-up starts over.
+    app(WhatsAppPairing::class)->check($integration);
+    expect($integration->fresh()->credentials)->not->toHaveKey('disconnected_at')->toHaveKey('connected_at');
+    $this->actingAs($user->fresh())->get(route('leads.index'))->assertDontSee(__('Reconnect'));
 });
 
 test('lista de leads não abre o envio para lead de outro usuário', function () {

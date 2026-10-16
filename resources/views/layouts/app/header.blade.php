@@ -110,6 +110,7 @@
 
         <main class="relative isolate mx-auto w-full max-w-7xl flex-1 px-5 pb-16 pt-24 md:pt-28">
             <div class="grid-bg pointer-events-none absolute inset-x-0 top-0 -z-10 h-[40vh]"></div>
+            <x-whatsapp.paused />
             {{ $slot }}
         </main>
 
