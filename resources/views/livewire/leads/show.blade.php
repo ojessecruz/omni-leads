@@ -5,7 +5,7 @@
             <x-ui.crumb>{{ $lead->displayName() }}</x-ui.crumb>
         </x-slot>
         <flux:badge :color="$lead->status->color()">{{ $lead->status->label() }}</flux:badge>
-        @if ($canWhatsApp)
+        @if ($canWhatsApp && ! $conversation)
             <flux:modal.trigger name="whatsapp">
                 <flux:button icon="chat-bubble-left-right" variant="primary">{{ __('Send WhatsApp') }}</flux:button>
             </flux:modal.trigger>
@@ -30,6 +30,17 @@
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12" data-reveal>
         <div class="space-y-6 lg:col-span-7">
+            @if ($conversation)
+                <x-ui.panel eyebrow="WhatsApp" :title="__('Conversation')" :padding="false">
+                    <x-slot name="actions">
+                        <a href="{{ route('conversations.index', ['c' => $conversation->id]) }}" wire:navigate class="font-mono text-2xs uppercase tracking-label text-zinc-500 hover:text-white">{{ __('Open in inbox') }} →</a>
+                    </x-slot>
+                    <div class="h-[28rem]">
+                        <livewire:conversations.chat :conversation-id="$conversation->id" :key="'lead-chat-'.$conversation->id" />
+                    </div>
+                </x-ui.panel>
+            @endif
+
             <x-ui.panel :eyebrow="__('Lead')" :title="__('Identity & contact')">
                 <x-slot name="actions"><span class="chip">#{{ $lead->id }}</span></x-slot>
                 <dl class="kv grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -106,7 +117,7 @@
         </div>
     </div>
 
-    @if ($canWhatsApp)
+    @if ($canWhatsApp && ! $conversation)
     <flux:modal name="whatsapp" class="w-full max-w-lg">
         <form wire:submit="sendWhatsApp" class="space-y-5">
             <div>

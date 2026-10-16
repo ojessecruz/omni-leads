@@ -6,5 +6,7 @@ document.addEventListener('alpine:init', () => {
 
 // Real-time updates only on app pages whose layout rendered the Reverb config (not the landing).
 if (window.omniEcho) {
-    import('./echo').then(({ default: connectEcho }) => connectEcho(window.omniEcho));
+    Promise.all([import('./echo'), import('./whatsapp')]).then(([{ default: connectEcho }, { default: listenToWhatsApp }]) => {
+        listenToWhatsApp(connectEcho(window.omniEcho), window.omniEcho);
+    });
 }

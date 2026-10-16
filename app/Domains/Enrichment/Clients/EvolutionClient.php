@@ -219,6 +219,25 @@ class EvolutionClient
         return ['base64' => $base64, 'mimetype' => $string($response->json('mimetype')), 'fileName' => $string($response->json('fileName'))];
     }
 
+    /**
+     * Blue ticks for the lead. POST {base}/chat/markMessageAsRead/{instance}
+     *
+     * @param  list<array{remoteJid: string, id: string}>  $messages
+     */
+    public function markAsRead(array $messages): void
+    {
+        if ($messages === []) {
+            return;
+        }
+
+        $this->assertConfigured();
+
+        $this->ensureOk($this->http()->post(
+            $this->config['base_url'].'/chat/markMessageAsRead/'.$this->config['instance'],
+            ['readMessages' => array_map(fn (array $m) => ['remoteJid' => $m['remoteJid'], 'fromMe' => false, 'id' => $m['id']], $messages)],
+        ));
+    }
+
     public function isConfigured(): bool
     {
         return filled($this->config['base_url'] ?? null) && filled($this->config['instance'] ?? null) && filled($this->config['key'] ?? null);

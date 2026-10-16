@@ -5,6 +5,7 @@ namespace App\Livewire\Leads;
 use App\Domains\Leads\LeadScorer;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Domains\WhatsApp\FirstContactLimit;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
@@ -33,7 +34,7 @@ class Show extends Component
         $this->whatsappText = WhatsAppTemplate::render($lead->project->whatsapp_template, $lead);
     }
 
-    public function sendWhatsApp(): void
+    public function sendWhatsApp(FirstContactLimit $limit): void
     {
         Gate::authorize('update', $this->lead->project);
 
@@ -41,6 +42,18 @@ class Show extends Component
 
         if (! $this->lead->phone) {
             Flux::toast(variant: 'danger', text: __('Lead has no phone.'));
+
+            return;
+        }
+
+        // The modal only exists while the lead has no conversation: this is always a first contact.
+        $user = $this->lead->project->user;
+
+        if (! $limit->attempt($user)) {
+            $this->addError('whatsappText', __('This number never replied. To protect your WhatsApp from a ban, messages like this are limited to :count per hour. Try again in :minutes min.', [
+                'count' => FirstContactLimit::PER_HOUR,
+                'minutes' => $limit->availableInMinutes($user),
+            ]));
 
             return;
         }
@@ -106,6 +119,7 @@ class Show extends Component
             'statuses' => LeadStatus::cases(),
             'scoring' => $scorer->evaluate($this->lead),
             'canWhatsApp' => $this->lead->phone && $this->lead->project->user->hasIntegration(IntegrationProvider::Evolution),
+            'conversation' => $this->lead->whatsappConversations()->where('user_id', $this->lead->project->user_id)->first(),
         ])->title($this->lead->displayName());
     }
 }
