@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use RuntimeException;
 
@@ -34,6 +35,12 @@ class Integrations extends Component
 
     public int $pairingPolls = 0;
 
+    /** Provider whose settings panel is open; ?open=google_places links straight to it. */
+    #[Url(as: 'open', except: '')]
+    public string $open = '';
+
+    public bool $showEditor = false;
+
     public function mount(): void
     {
         $user = Auth::user();
@@ -51,6 +58,25 @@ class Integrations extends Component
         $this->form['evolution']['mode'] = $evolution
             ? ($evolution->credentials['mode'] ?? 'own')
             : (app(EvolutionClient::class)->hostedAvailable() ? 'hosted' : 'own');
+
+        $this->open = IntegrationProvider::tryFrom($this->open)->value ?? '';
+        $this->showEditor = $this->open !== '';
+    }
+
+    public function edit(string $provider): void
+    {
+        $this->open = $this->provider($provider)->value;
+        $this->showEditor = true;
+        $this->resetErrorBag();
+    }
+
+    /** The panel was closed (button, Esc or backdrop). */
+    public function updatedShowEditor(bool $value): void
+    {
+        if (! $value) {
+            $this->open = '';
+            $this->whatsappQr = null;
+        }
     }
 
     public function save(string $provider, IntegrationVerifier $verifier): void
@@ -106,6 +132,12 @@ class Integrations extends Component
             if ($field['secret']) {
                 $this->form[$provider->value][$name] = '';
             }
+        }
+
+        // Evolution stays open: the phone still has to be paired.
+        if ($provider !== IntegrationProvider::Evolution) {
+            $this->showEditor = false;
+            $this->open = '';
         }
 
         Flux::toast(variant: 'success', text: $provider === IntegrationProvider::Evolution && ! $provider->isUsable($credentials)
@@ -289,11 +321,33 @@ class Integrations extends Component
         return IntegrationProvider::from($value);
     }
 
+    /**
+     * What each tile says: ok (green), attention (amber) or idle.
+     *
+     * @return array{tone: 'ok'|'warn'|'idle', label: string}
+     */
+    protected function tileStatus(IntegrationProvider $provider, ?Integration $integration): array
+    {
+        $credentials = $integration->credentials ?? [];
+
+        return match (true) {
+            $integration === null && $provider->required() => ['tone' => 'warn', 'label' => __('Required')],
+            $integration === null => ['tone' => 'idle', 'label' => __('Set up')],
+            $provider === IntegrationProvider::Evolution && ! $provider->isUsable($credentials) => ['tone' => 'warn', 'label' => __('Phone not connected')],
+            $provider === IntegrationProvider::Evolution && filled($credentials['webhook_error'] ?? null) => ['tone' => 'warn', 'label' => __('Inbox not receiving')],
+            default => ['tone' => 'ok', 'label' => __('Connected')],
+        };
+    }
+
     public function render(): View
     {
+        $connected = Auth::user()->integrations->keyBy(fn (Integration $i) => $i->provider->value);
+
         return view('livewire.settings.integrations', [
             'groups' => collect(IntegrationProvider::cases())->groupBy(fn (IntegrationProvider $p) => $p->group()),
-            'connected' => Auth::user()->integrations->keyBy(fn (Integration $i) => $i->provider->value),
+            'statuses' => collect(IntegrationProvider::cases())->mapWithKeys(fn (IntegrationProvider $p) => [$p->value => $this->tileStatus($p, $connected->get($p->value))]),
+            'editing' => IntegrationProvider::tryFrom($this->open),
+            'connected' => $connected,
             'whatsapp' => Auth::user()->integration(IntegrationProvider::Evolution)?->credentials,
             'hostedWhatsApp' => app(EvolutionClient::class)->hostedAvailable(),
         ]);

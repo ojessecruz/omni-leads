@@ -36,6 +36,30 @@ enum IntegrationProvider: string
         };
     }
 
+    /** Heroicon shown on the integration tile. */
+    public function icon(): string
+    {
+        return match ($this) {
+            self::GooglePlaces => 'map-pin',
+            self::Apollo => 'user-group',
+            self::Hunter => 'at-symbol',
+            self::Evolution => 'chat-bubble-left-right',
+            self::Saleshandy => 'paper-airplane',
+        };
+    }
+
+    /** Tile colors, close to each brand. */
+    public function accent(): string
+    {
+        return match ($this) {
+            self::GooglePlaces => 'bg-sky-500/15 text-sky-400',
+            self::Apollo => 'bg-amber-400/15 text-amber-300',
+            self::Hunter => 'bg-orange-500/15 text-orange-400',
+            self::Evolution => 'bg-emerald-500/15 text-emerald-400',
+            self::Saleshandy => 'bg-violet-500/15 text-violet-400',
+        };
+    }
+
     /** Searches do not run without it. */
     public function required(): bool
     {

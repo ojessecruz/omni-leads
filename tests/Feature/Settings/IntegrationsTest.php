@@ -31,6 +31,8 @@ test('salvar verifica a chave no provedor e guarda criptografada na conta', func
         ->call('save', 'google_places')
         ->assertHasNoErrors()
         ->assertSet('form.google_places.key', '')
+        ->assertSet('showEditor', false)
+        ->call('edit', 'google_places')
         ->assertSee('••••1234');
 
     Http::assertSent(fn (Request $r) => $r->hasHeader('X-Goog-Api-Key', 'gp-secret-1234') && $r->hasHeader('X-Goog-FieldMask', 'places.id'));
@@ -54,7 +56,7 @@ test('Evolution pede só servidor e chave global; chave em branco mantém a salv
     Http::fake(['https://evo.test/instance/fetchInstances' => Http::response([])]);
     $user = User::factory()->create();
 
-    Livewire::actingAs($user)->test(Integrations::class)
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->set('form.evolution.base_url', 'https://evo.test/')
         ->call('save', 'evolution')
         ->assertHasErrors(['form.evolution.key'])
@@ -83,7 +85,7 @@ test('conectar celular cria a instância, mostra o QR e marca pareado quando o e
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution, ['base_url' => 'https://evo.test', 'key' => 'global-key']);
 
-    $page = Livewire::actingAs($user)->test(Integrations::class)
+    $page = Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->call('connectPhone')
         ->assertSet('whatsappQr', 'data:image/png;base64,QR1')
         ->assertSeeHtml('wire:poll.3s="checkPhone"')
@@ -110,7 +112,7 @@ test('desconectar celular faz logout e mantém a instância para parear de novo'
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution);
 
-    Livewire::actingAs($user)->test(Integrations::class)
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->call('disconnectPhone')
         ->assertSee('Connect phone');
 
@@ -127,7 +129,7 @@ test('trocar o servidor do Evolution descarta o celular pareado no servidor anti
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution);
 
-    Livewire::actingAs($user)->test(Integrations::class)
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->set('form.evolution.base_url', 'https://novo.test')
         ->call('save', 'evolution')
         ->assertHasNoErrors();
@@ -137,7 +139,7 @@ test('trocar o servidor do Evolution descarta o celular pareado no servidor anti
 });
 
 test('sem servidor do Omni Leads configurado, só existe a opção de servidor próprio', function () {
-    Livewire::actingAs(User::factory()->create())->test(Integrations::class)
+    Livewire::actingAs(User::factory()->create())->test(Integrations::class)->call('edit', 'evolution')
         ->assertSet('form.evolution.mode', 'own')
         ->assertDontSee('Omni Leads server')
         ->set('form.evolution.mode', 'hosted')
@@ -157,7 +159,7 @@ test('servidor do Omni Leads: sem URL nem chave, pareia no servidor da plataform
     $lead = Lead::factory()->create(['phone' => '5511999990000']);
     $user = $lead->project->user;
 
-    Livewire::actingAs($user)->test(Integrations::class)
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->assertSet('form.evolution.mode', 'hosted')
         ->assertSee('Omni Leads server')
         ->call('save', 'evolution')
@@ -184,7 +186,7 @@ test('trocar do servidor próprio para o do Omni Leads apaga a instância antiga
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution);
 
-    Livewire::actingAs($user)->test(Integrations::class)
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')
         ->assertSet('form.evolution.mode', 'own')
         ->set('form.evolution.mode', 'hosted')
         ->call('save', 'evolution')
@@ -199,7 +201,7 @@ test('remover o Evolution apaga a instância no servidor', function () {
     $user = User::factory()->create();
     connectIntegration($user, IntegrationProvider::Evolution);
 
-    Livewire::actingAs($user)->test(Integrations::class)->call('remove', 'evolution');
+    Livewire::actingAs($user)->test(Integrations::class)->call('edit', 'evolution')->call('remove', 'evolution');
 
     Http::assertSent(fn (Request $r) => $r->method() === 'DELETE' && $r->url() === 'https://evo.test/instance/delete/main');
     expect($user->integrations()->count())->toBe(0);
@@ -237,4 +239,28 @@ test('aviso de chave do Google Places some quando a conta tem a chave', function
     connectIntegration($project->user, IntegrationProvider::GooglePlaces);
 
     $this->actingAs($project->user)->get(route('projects.show', $project))->assertDontSee('Searches need your Google Places API key');
+});
+
+test('cada integração vira um card com status, e ?open= abre o painel dela', function () {
+    $user = User::factory()->create(['locale' => 'en']);
+    connectIntegration($user, IntegrationProvider::Apollo);
+    connectIntegration($user, IntegrationProvider::Evolution, ['base_url' => 'https://evo.test', 'key' => 'ek']);
+
+    $html = $this->actingAs($user)->get(route('integrations.edit'))->assertOk()->getContent();
+
+    expect($html)->toMatch('/data-integration-tile="google_places".*?Required/s')
+        ->toMatch('/data-integration-tile="apollo".*?Connected/s')
+        ->toMatch('/data-integration-tile="evolution".*?Phone not connected/s')
+        ->toMatch('/data-integration-tile="hunter".*?Set up/s')
+        ->not->toContain('Global API key');
+
+    Livewire::actingAs($user)->withQueryParams(['open' => 'evolution'])->test(Integrations::class)
+        ->assertSet('showEditor', true)
+        ->assertSee('Global API key')
+        ->set('showEditor', false)
+        ->assertSet('open', '');
+
+    Livewire::actingAs($user)->withQueryParams(['open' => 'nada'])->test(Integrations::class)
+        ->assertSet('open', '')
+        ->assertSet('showEditor', false);
 });

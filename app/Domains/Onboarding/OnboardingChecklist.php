@@ -24,7 +24,7 @@ class OnboardingChecklist
                 title: __('Connect Google Places'),
                 description: __('Searches use your own Google Places key. It takes about 5 minutes and Google has a free monthly quota.'),
                 action: __('Add key'),
-                url: route('integrations.edit').'#google-places-guide',
+                url: route('integrations.edit', ['open' => IntegrationProvider::GooglePlaces->value]),
                 done: $user->hasIntegration(IntegrationProvider::GooglePlaces),
             ),
             new OnboardingStep(

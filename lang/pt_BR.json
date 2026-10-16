@@ -668,5 +668,8 @@
     "Inbox receiving replies and delivery status.": "Conversas recebendo respostas e status de entrega.",
     "Inbox not receiving: :reason": "Conversas não estão recebendo: :reason",
     "Inbox webhook not registered yet.": "Webhook das Conversas ainda não registrado.",
-    "Register webhook": "Registrar webhook"
+    "Register webhook": "Registrar webhook",
+    "Set up": "Configurar",
+    "Phone not connected": "Celular não conectado",
+    "Inbox not receiving": "Conversas sem receber"
 }

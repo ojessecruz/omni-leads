@@ -1,4 +1,4 @@
-<div class="-mx-4 mt-4 border-t border-white/8 px-4 pt-4">
+<div class="mt-6 border-t border-white/8 pt-4">
     <p class="eyebrow">{{ __('Phone') }}</p>
 
     @if (filled($whatsapp['connected_at'] ?? null))

@@ -283,7 +283,7 @@ test('erro ao registrar o webhook fica visível em Integrações e o botão tent
     expect(fn () => app(RegisterWhatsAppWebhook::class)($integration))->toThrow(RuntimeException::class);
     expect($integration->fresh()->credentials['webhook_error'])->toContain('instance not found');
 
-    $this->actingAs($user)->get(route('integrations.edit'))->assertSee('instance not found');
+    $this->actingAs($user)->get(route('integrations.edit', ['open' => 'evolution']))->assertSee('instance not found');
 
     Livewire::actingAs($user)->test(Integrations::class)->call('registerInboxWebhook');
 
