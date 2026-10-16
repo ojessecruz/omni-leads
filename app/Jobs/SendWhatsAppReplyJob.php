@@ -35,10 +35,10 @@ class SendWhatsAppReplyJob implements ShouldQueue
 
         $response = $evolution->withCredentials($conversation->user->credentialsFor(IntegrationProvider::Evolution))->sendText($conversation->phone, $this->text);
 
+        $inbox->markContacted($conversation);
+
         if ($sent = $parser->sent($response, $this->text)) {
             $inbox->record($conversation->user, $sent, sentVia: 'omni');
         }
-
-        $inbox->markContacted($conversation);
     }
 }

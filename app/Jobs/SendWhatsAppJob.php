@@ -61,20 +61,21 @@ class SendWhatsAppJob implements ShouldQueue
             ],
         ]);
 
-        // The message is out: a failure to log it in the inbox must not fail (and never re-send) the job.
+        $from = $lead->status;
+
+        if (! in_array($from, [LeadStatus::Contacted, LeadStatus::Replied], true)) {
+            $lead->update(['status' => LeadStatus::Contacted]);
+            LeadStatusChanged::dispatch($lead, $from);
+        }
+
+        // Recorded last: the broadcast it fires makes open pages reload the lead, already contacted.
+        // The message is out, so a failure to log it in the inbox must not fail (and never re-send) the job.
         try {
             if ($sent = $parser->sent($response, $this->text)) {
                 $inbox->record($user, $sent, sentVia: 'omni');
             }
         } catch (Throwable $e) {
             report($e);
-        }
-
-        $from = $lead->status;
-
-        if (! in_array($from, [LeadStatus::Contacted, LeadStatus::Replied], true)) {
-            $lead->update(['status' => LeadStatus::Contacted]);
-            LeadStatusChanged::dispatch($lead, $from);
         }
     }
 

@@ -238,6 +238,24 @@ class EvolutionClient
         ));
     }
 
+    /**
+     * Profile photo URL, or null when the contact hides it. POST {base}/chat/fetchProfilePictureUrl/{instance}
+     * The URL is a signed WhatsApp CDN link that expires in a few days: copy the file, do not keep the link.
+     */
+    public function profilePictureUrl(string $number): ?string
+    {
+        $this->assertConfigured();
+
+        $response = $this->ensureOk($this->http()->post(
+            $this->config['base_url'].'/chat/fetchProfilePictureUrl/'.$this->config['instance'],
+            ['number' => $number],
+        ));
+
+        $url = $response->json('profilePictureUrl');
+
+        return is_string($url) && str_starts_with($url, 'https://') ? $url : null;
+    }
+
     public function isConfigured(): bool
     {
         return filled($this->config['base_url'] ?? null) && filled($this->config['instance'] ?? null) && filled($this->config['key'] ?? null);

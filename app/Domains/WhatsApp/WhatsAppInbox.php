@@ -16,6 +16,7 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\MimeTypes;
@@ -173,6 +174,40 @@ class WhatsAppInbox
             'media_mime' => $mime,
             'media_name' => $message->media_name ?? $media['fileName'] ?? null,
         ]);
+    }
+
+    /** Largest profile photo copied (WhatsApp serves 640px JPEGs, well below this). */
+    public const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
+    /**
+     * Copies the contact's WhatsApp profile photo to the default disk, replacing the old one.
+     * A hidden photo clears it. Always stamps avatar_checked_at, so failures wait for the next round.
+     *
+     * @param  EvolutionClient  $evolution  bound to the conversation owner's credentials
+     */
+    public function refreshAvatar(WhatsAppConversation $conversation, EvolutionClient $evolution): void
+    {
+        $url = $evolution->profilePictureUrl($conversation->phone);
+        $path = null;
+
+        if ($url !== null) {
+            $response = Http::connectTimeout(3)->timeout(15)->get($url);
+            $type = strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0]));
+
+            if ($response->successful() && str_starts_with($type, 'image/') && strlen($response->body()) <= self::MAX_AVATAR_BYTES) {
+                $extension = (new MimeTypes)->getExtensions($type)[0] ?? 'jpg';
+                $path = sprintf('whatsapp/%d/%d/avatar-%s.%s', $conversation->user_id, $conversation->id, Str::random(24), $extension);
+                Storage::put($path, $response->body());
+            } else {
+                $path = $conversation->avatar_path;
+            }
+        }
+
+        if ($conversation->avatar_path !== null && $conversation->avatar_path !== $path) {
+            Storage::delete($conversation->avatar_path);
+        }
+
+        $conversation->update(['avatar_path' => $path, 'avatar_checked_at' => now()]);
     }
 
     /** True once the number has written at least once: replying to it is free of the first-contact limit. */

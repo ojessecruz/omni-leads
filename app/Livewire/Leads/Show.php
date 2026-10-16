@@ -18,6 +18,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class Show extends Component
@@ -104,6 +105,22 @@ class Show extends Component
         EnrichLeadJob::dispatch($this->lead->id, force: true);
 
         Flux::toast(text: __('Enrichment queued. Refresh in a moment.'));
+    }
+
+    /**
+     * A WhatsApp message to or from this lead's number: reload the lead (status) and,
+     * after the first message, show the conversation that now exists.
+     *
+     * @param  array<string, mixed>  $payload  WhatsAppMessageStored::broadcastWith()
+     */
+    #[On('whatsapp-message')]
+    public function onWhatsAppMessage(array $payload): void
+    {
+        if ($this->lead->whatsappConversations()->whereKey($payload['conversation_id'] ?? 0)->exists()) {
+            $this->lead->refresh();
+        } else {
+            $this->skipRender();
+        }
     }
 
     public function render(LeadScorer $scorer, OutboundConnectorResolver $resolver): View

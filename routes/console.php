@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('icps:rerun-due')->hourly()->withoutOverlapping();
 Schedule::command('leads:merge-duplicates')->dailyAt('03:00');
 Schedule::command('whatsapp:register-webhooks')->hourly()->withoutOverlapping();
+Schedule::command('whatsapp:refresh-avatars')->hourly()->withoutOverlapping();

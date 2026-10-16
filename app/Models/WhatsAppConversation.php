@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
  * @property string $remote_jid
  * @property string $phone
  * @property string|null $name
+ * @property string|null $avatar_path profile photo copied from WhatsApp (their URLs expire)
+ * @property Carbon|null $avatar_checked_at
  * @property string|null $last_message_preview
  * @property Carbon|null $last_message_at
  * @property int $unread_count
@@ -27,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read User $user
  */
-#[Fillable(['user_id', 'remote_jid', 'phone', 'name', 'last_message_preview', 'last_message_at', 'unread_count'])]
+#[Fillable(['user_id', 'remote_jid', 'phone', 'name', 'avatar_path', 'avatar_checked_at', 'last_message_preview', 'last_message_at', 'unread_count'])]
 class WhatsAppConversation extends Model
 {
     /** @use HasFactory<WhatsAppConversationFactory> */
@@ -39,8 +41,23 @@ class WhatsAppConversation extends Model
     {
         return [
             'last_message_at' => 'datetime',
+            'avatar_checked_at' => 'datetime',
             'unread_count' => 'integer',
         ];
+    }
+
+    /** Photos are looked up again after this many days (people change them). */
+    public const AVATAR_TTL_DAYS = 7;
+
+    public function avatarIsStale(): bool
+    {
+        return $this->avatar_checked_at === null || $this->avatar_checked_at->lt(now()->subDays(self::AVATAR_TTL_DAYS));
+    }
+
+    /** WhatsApp profile name once the number wrote; before that, the lead's name; else the number. */
+    public function displayName(): string
+    {
+        return $this->name ?? $this->leads->first()?->displayName() ?? '+'.$this->phone;
     }
 
     /** @return BelongsTo<User, $this> */

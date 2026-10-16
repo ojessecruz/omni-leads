@@ -13,6 +13,7 @@ use App\Events\LeadStatusChanged;
 use App\Events\WhatsAppMessageStored;
 use App\Jobs\DownloadWhatsAppMediaJob;
 use App\Jobs\ProcessWhatsAppWebhookJob;
+use App\Jobs\RefreshWhatsAppAvatarJob;
 use App\Jobs\SendWhatsAppJob;
 use App\Models\Icp;
 use App\Models\Integration;
@@ -29,6 +30,8 @@ use Illuminate\Support\Facades\URL;
 
 beforeEach(function () {
     config()->set('enrichment.evolution.requests_per_minute', 100);
+    // Photo lookups have their own tests; elsewhere they would hit the unfaked Evolution URL.
+    Queue::fake([RefreshWhatsAppAvatarJob::class]);
 });
 
 /** Paired Evolution integration (https://evo.test, instance "main") with a registered webhook secret. */
@@ -177,7 +180,7 @@ test('confirmações de entrega só avançam o status', function () {
 
 test('mídia recebida é baixada da Evolution para o disco', function () {
     Storage::fake();
-    Queue::fake([DownloadWhatsAppMediaJob::class]);
+    Queue::fake([DownloadWhatsAppMediaJob::class, RefreshWhatsAppAvatarJob::class]);
     Http::fake(['https://evo.test/chat/getBase64FromMediaMessage/main' => Http::response(['base64' => base64_encode('fake-ogg'), 'mimetype' => 'audio/ogg; codecs=opus'])]);
     $user = User::factory()->create();
     pairedWhatsApp($user);

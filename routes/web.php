@@ -3,6 +3,7 @@
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OutboundWebhookController;
 use App\Http\Controllers\ThemeController;
+use App\Http\Controllers\WhatsAppAvatarController;
 use App\Http\Controllers\WhatsAppMediaController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Livewire\Conversations\Index as ConversationsIndex;
@@ -44,6 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('conversations', ConversationsIndex::class)->name('conversations.index');
     Route::get('conversations/media/{message}', WhatsAppMediaController::class)->name('conversations.media');
+    Route::get('conversations/{conversation}/avatar', WhatsAppAvatarController::class)->name('conversations.avatar');
 });
 
 require __DIR__.'/settings.php';
