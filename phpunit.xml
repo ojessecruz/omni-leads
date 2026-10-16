@@ -35,5 +35,6 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="EVOLUTION_BASE_URL" value=""/>
         <env name="EVOLUTION_API_KEY" value=""/>
+        <env name="WHATSAPP_BUSINESS_HOURS" value="false"/>
     </php>
 </phpunit>

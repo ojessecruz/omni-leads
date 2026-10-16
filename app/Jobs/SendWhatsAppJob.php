@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\WhatsApp\PauseDisconnectedWhatsApp;
 use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\WhatsApp\WebhookParser;
 use App\Domains\WhatsApp\WhatsAppInbox;
@@ -13,6 +14,7 @@ use App\Models\LeadSource;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -22,6 +24,10 @@ use Throwable;
  * Sending is a non-idempotent POST on Evolution's side, so the job does not retry by itself:
  * the lead_sources row (external_id = delivery id) is written before sending and, if it already
  * holds a response, a manual re-run does not send the message again.
+ *
+ * First contacts are scheduled (QueueFirstContact delays the job to its slot). If the phone got
+ * disconnected meanwhile, the send is cancelled instead of queued up for a burst on re-pairing;
+ * a send that fails because the phone dropped pauses all the others.
  */
 class SendWhatsAppJob implements ShouldQueue
 {
@@ -35,7 +41,7 @@ class SendWhatsAppJob implements ShouldQueue
         $this->onQueue('default');
     }
 
-    public function handle(EvolutionClient $evolution, WebhookParser $parser, WhatsAppInbox $inbox): void
+    public function handle(EvolutionClient $evolution, WebhookParser $parser, WhatsAppInbox $inbox, PauseDisconnectedWhatsApp $pause): void
     {
         $lead = Lead::find($this->leadId);
 
@@ -45,12 +51,29 @@ class SendWhatsAppJob implements ShouldQueue
 
         $source = $this->source($lead);
 
-        if (isset($source->raw_payload['response'])) {
+        if (isset($source->raw_payload['response']) || isset($source->raw_payload['error'])) {
             return;
         }
 
         $user = $lead->project->user;
-        $response = $evolution->withCredentials($user->credentialsFor(IntegrationProvider::Evolution))->sendText($lead->phone, $this->text);
+
+        if (! $user->hasIntegration(IntegrationProvider::Evolution)) {
+            $this->cancel($source, 'WhatsApp disconnected: send cancelled.');
+
+            return;
+        }
+
+        try {
+            $response = $evolution->withCredentials($user->credentialsFor(IntegrationProvider::Evolution))->sendText($lead->phone, $this->text);
+        } catch (RuntimeException $e) {
+            if ($pause($user, $e)) {
+                $this->cancel($source, $e->getMessage());
+
+                return;
+            }
+
+            throw $e;
+        }
 
         $source->update([
             'raw_payload' => [
@@ -90,6 +113,11 @@ class SendWhatsAppJob implements ShouldQueue
         $source = $this->source($lead);
 
         $source->update(['raw_payload' => [...$source->raw_payload, 'error' => $exception?->getMessage()]]);
+    }
+
+    private function cancel(LeadSource $source, string $reason): void
+    {
+        $source->update(['raw_payload' => [...$source->raw_payload, 'error' => $reason, 'cancelled' => true]]);
     }
 
     private function source(Lead $lead): LeadSource

@@ -1,8 +1,6 @@
 <?php
 
 use App\Domains\Enrichment\Clients\EvolutionClient;
-use App\Domains\WhatsApp\FirstContactLimit;
-use App\Domains\WhatsApp\WebhookParser;
 use App\Domains\WhatsApp\WhatsAppInbox;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
@@ -134,13 +132,13 @@ test('mensagens para quem nunca respondeu param no limite por hora', function ()
     $conversation = conversationWithLead($user, replied: false);
     $chat = Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id]);
 
-    foreach (range(1, FirstContactLimit::PER_HOUR) as $i) {
+    foreach (range(1, config('whatsapp.first_contact.per_hour')) as $i) {
         $chat->set('text', "Oi {$i}")->call('send')->assertHasNoErrors();
     }
 
     $chat->set('text', 'Mais uma')->call('send')->assertHasErrors('text');
 
-    Queue::assertPushed(SendWhatsAppReplyJob::class, FirstContactLimit::PER_HOUR);
+    Queue::assertPushed(SendWhatsAppReplyJob::class, config('whatsapp.first_contact.per_hour'));
 });
 
 test('envio pela caixa grava a mensagem como do Omni e marca o lead como contatado', function () {
@@ -153,7 +151,7 @@ test('envio pela caixa grava a mensagem como do Omni e marca o lead como contata
     connectIntegration($user, IntegrationProvider::Evolution);
     $conversation = conversationWithLead($user, replied: false, leadAttributes: ['status' => LeadStatus::Qualified]);
 
-    (new SendWhatsAppReplyJob($conversation->id, 'Olá'))->handle(app(EvolutionClient::class), app(WebhookParser::class), app(WhatsAppInbox::class));
+    app()->call([new SendWhatsAppReplyJob($conversation->id, 'Olá'), 'handle']);
 
     $message = $conversation->messages()->sole();
     expect($message->sent_via)->toBe('omni')

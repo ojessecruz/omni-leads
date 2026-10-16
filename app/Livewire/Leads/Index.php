@@ -131,7 +131,7 @@ class Index extends Component
         }
 
         try {
-            $queue($lead, $this->whatsappText);
+            $at = $queue($lead, $this->whatsappText);
         } catch (RuntimeException $e) {
             $this->addError('whatsappText', $e->getMessage());
 
@@ -140,7 +140,7 @@ class Index extends Component
 
         $this->reset('whatsappLeadId', 'whatsappText');
         Flux::modal('lead-whatsapp')->close();
-        Flux::toast(variant: 'success', text: __('Message queued. The lead will be marked as contacted after sending.'));
+        Flux::toast(variant: 'success', text: QueueFirstContact::feedback($at));
     }
 
     /** The send job stored the message and marked the lead contacted: redraw the row. */
@@ -301,7 +301,7 @@ class Index extends Component
         $statusCounts = $this->query(['status'])->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         $leads = $this->sorted($this->query())
-            ->with(['icp:id,name', 'sources:id,lead_id,driver', 'whatsappConversations:id'])
+            ->with(['icp:id,name', 'sources:id,lead_id,driver', 'whatsappConversations:id', 'pendingWhatsAppSends:id,lead_id,raw_payload'])
             ->paginate(self::PER_PAGE);
 
         return view('livewire.leads.index', [

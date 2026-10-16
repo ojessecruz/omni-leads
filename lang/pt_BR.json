@@ -656,8 +656,6 @@
     "Pair your phone in Settings > Integrations. Replies from your leads will show up here.": "Conecte seu celular em Configurações > Integrações. As respostas dos seus leads vão aparecer aqui.",
     "Pick a conversation on the left.": "Escolha uma conversa à esquerda.",
     "Search by name, company or phone": "Buscar por nome, empresa ou telefone",
-    "This number has not replied yet. Messages to numbers that never replied are limited to :count per hour to protect your WhatsApp.": "Este número ainda não respondeu. Mensagens para números que nunca responderam são limitadas a :count por hora, para proteger seu WhatsApp.",
-    "This number never replied. To protect your WhatsApp from a ban, messages like this are limited to :count per hour. Try again in :minutes min.": "Este número nunca respondeu. Para proteger seu WhatsApp de banimento, mensagens assim são limitadas a :count por hora. Tente de novo em :minutes min.",
     "Today": "Hoje",
     "Type a message": "Digite uma mensagem",
     "WhatsApp chats with numbers that are leads in your projects. Other chats on your phone never reach Omni Leads.": "Conversas de WhatsApp com números que são leads nos seus projetos. As outras conversas do seu celular nunca chegam ao Omni Leads.",
@@ -684,5 +682,17 @@
     "Clear selection": "Limpar seleção",
     "Search…": "Buscar…",
     "Nothing found": "Nada encontrado",
-    "This lead already has a conversation. Reply from the inbox.": "Este lead já tem uma conversa. Responda pela tela de Conversas."
+    "This lead already has a conversation. Reply from the inbox.": "Este lead já tem uma conversa. Responda pela tela de Conversas.",
+    "WhatsApp is not connected. Pair your phone in Settings > Integrations.": "O WhatsApp não está conectado. Pareie o celular em Configurações > Integrações.",
+    "A message to this lead is already scheduled.": "Já existe uma mensagem agendada para este lead.",
+    "The first-contact queue is full for the next days. Try again tomorrow.": "A fila de primeiros contatos está cheia para os próximos dias. Tente de novo amanhã.",
+    "Message scheduled for :time. The lead will be marked as contacted after sending.": "Mensagem agendada para :time. O lead será marcado como contatado após o envio.",
+    "WhatsApp scheduled for :time": "WhatsApp agendado para :time",
+    "This number never replied. To protect your WhatsApp, messages like this only go out on business hours and within the hourly and daily limits. Try again later.": "Este número nunca respondeu. Para proteger seu WhatsApp, mensagens assim só saem em horário comercial e dentro dos limites por hora e por dia. Tente mais tarde.",
+    "This number has not replied yet. To protect your WhatsApp, messages to numbers that never replied are limited to :hour per hour and :day per day, on business hours.": "Este número ainda não respondeu. Para proteger seu WhatsApp, mensagens para quem nunca respondeu são limitadas a :hour por hora e :day por dia, em horário comercial.",
+    "Your WhatsApp disconnected on :time and sending is paused. Scheduled messages were cancelled. If WhatsApp restricted the number, wait for it to be lifted before pairing again.": "Seu WhatsApp desconectou em :time e os envios estão pausados. As mensagens agendadas foram canceladas. Se o WhatsApp restringiu o número, espere a restrição acabar antes de parear de novo.",
+    "Reconnect": "Reconectar",
+    "First contacts: up to :hour per hour and :day per day (the daily limit grows while a new number warms up), :gap_min–:gap_max min apart.": "Primeiros contatos: até :hour por hora e :day por dia (o limite diário cresce enquanto um número novo aquece), com :gap_min–:gap_max min de intervalo.",
+    "Only on weekdays, :from:00–:until:00.": "Só em dias úteis, das :from:00 às :until:00.",
+    "Disconnected on :time: :reason": "Desconectado em :time: :reason"
 }

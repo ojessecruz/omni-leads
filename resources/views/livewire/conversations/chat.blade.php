@@ -95,7 +95,7 @@
 
     <form wire:submit="send" class="border-t border-white/6 p-3">
         @unless ($hasReplied)
-            <p class="mb-2 text-xs text-amber-300/80">{{ __('This number has not replied yet. Messages to numbers that never replied are limited to :count per hour to protect your WhatsApp.', ['count' => \App\Domains\WhatsApp\FirstContactLimit::PER_HOUR]) }}</p>
+            <p class="mb-2 text-xs text-amber-300/80">{{ __('This number has not replied yet. To protect your WhatsApp, messages to numbers that never replied are limited to :hour per hour and :day per day, on business hours.', ['hour' => $perHour, 'day' => $perDay]) }}</p>
         @endunless
         <div class="flex items-end gap-2">
             <flux:textarea wire:model="text" rows="1" resize="vertical" :placeholder="__('Type a message')" class="flex-1"

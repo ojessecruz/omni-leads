@@ -75,6 +75,7 @@
                 <flux:table.rows>
                     @foreach ($leads as $lead)
                         @php($conversation = $lead->whatsappConversations->first())
+                        @php($scheduledFor = $lead->pendingWhatsAppSends->first()?->raw_payload['scheduled_for'] ?? null)
                         <flux:table.row :key="$lead->id" class="group">
                             <flux:table.cell><flux:checkbox wire:model.live="selected" value="{{ $lead->id }}" :aria-label="__('Select :name', ['name' => $lead->displayName()])" /></flux:table.cell>
 
@@ -123,6 +124,10 @@
                                 <div class="flex justify-end gap-0.5 opacity-60 transition group-hover:opacity-100">
                                     @if ($conversation)
                                         <flux:button size="xs" variant="ghost" icon="chat-bubble-left-right" :href="route('conversations.index', ['c' => $conversation->id])" wire:navigate :tooltip="__('Open conversation')" />
+                                    @elseif ($scheduledFor)
+                                        <flux:tooltip :content="__('WhatsApp scheduled for :time', ['time' => \App\Actions\WhatsApp\QueueFirstContact::localTime($scheduledFor)])">
+                                            <span class="inline-flex size-6 items-center justify-center text-sky-400"><flux:icon.clock variant="micro" /></span>
+                                        </flux:tooltip>
                                     @elseif ($canWhatsApp && $lead->phone && $lead->whatsapp_valid !== false)
                                         <flux:button size="xs" variant="ghost" icon="paper-airplane" wire:click="openWhatsApp({{ $lead->id }})" :tooltip="__('Send WhatsApp')" />
                                     @endif

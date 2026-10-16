@@ -17,6 +17,13 @@
             @endif
             <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="registerInboxWebhook">{{ __('Register webhook') }}</flux:button>
         </div>
+        {{-- First contacts are paced to keep the number from being restricted (config/whatsapp.php). --}}
+        <p class="mt-3 text-xs text-zinc-500">
+            {{ __('First contacts: up to :hour per hour and :day per day (the daily limit grows while a new number warms up), :gap_min–:gap_max min apart.', ['hour' => $pacing['hour'], 'day' => $pacing['day'], 'gap_min' => $pacing['gap'][0], 'gap_max' => $pacing['gap'][1]]) }}
+            @if ($pacing['hours']['enabled'])
+                {{ __('Only on weekdays, :from:00–:until:00.', ['from' => $pacing['hours']['from'], 'until' => $pacing['hours']['until']]) }}
+            @endif
+        </p>
     @elseif ($whatsappQr)
         <div wire:poll.3s="checkPhone" class="mt-3 flex flex-col items-center gap-3 text-center">
             <img src="{{ $whatsappQr }}" alt="{{ __('WhatsApp QR code') }}" class="size-56 rounded-lg bg-[#fff] p-2" />
@@ -25,6 +32,11 @@
             <flux:button size="sm" variant="ghost" wire:click="cancelPairing">{{ __('Cancel') }}</flux:button>
         </div>
     @else
+        @if (filled($whatsapp['disconnected_at'] ?? null))
+            <p class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-zinc-300">
+                {{ __('Disconnected on :time: :reason', ['time' => \App\Actions\WhatsApp\QueueFirstContact::localTime($whatsapp['disconnected_at']), 'reason' => $whatsapp['disconnect_reason'] ?? '—']) }}
+            </p>
+        @endif
         <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
             <p class="text-sm text-zinc-400">{{ __('Pair the phone that will check numbers and send the messages.') }}</p>
             <flux:button size="sm" variant="primary" icon="device-phone-mobile" wire:click="connectPhone">{{ __('Connect phone') }}</flux:button>

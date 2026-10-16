@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Actions\WhatsApp\FirstContactSlots;
 use App\Actions\WhatsApp\RegisterWhatsAppWebhook;
 use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Integrations\Exceptions\IntegrationException;
@@ -339,7 +340,7 @@ class Integrations extends Component
         };
     }
 
-    public function render(): View
+    public function render(FirstContactSlots $slots): View
     {
         $connected = Auth::user()->integrations->keyBy(fn (Integration $i) => $i->provider->value);
 
@@ -350,6 +351,12 @@ class Integrations extends Component
             'connected' => $connected,
             'whatsapp' => Auth::user()->integration(IntegrationProvider::Evolution)?->credentials,
             'hostedWhatsApp' => app(EvolutionClient::class)->hostedAvailable(),
+            'pacing' => [
+                'hour' => $slots->schedule()->perHour(),
+                'day' => $slots->dailyCap(Auth::user()),
+                'gap' => array_map(fn (int $s) => intdiv($s, 60), config('whatsapp.first_contact.gap')),
+                'hours' => config('whatsapp.business_hours'),
+            ],
         ]);
     }
 }

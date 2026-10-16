@@ -5,7 +5,9 @@
             <x-ui.crumb>{{ $lead->displayName() }}</x-ui.crumb>
         </x-slot>
         <flux:badge :color="$lead->status->color()">{{ $lead->status->label() }}</flux:badge>
-        @if ($canWhatsApp && ! $conversation)
+        @if ($scheduledWhatsApp && ! $conversation)
+            <span class="chip"><flux:icon.clock variant="micro" /> {{ __('WhatsApp scheduled for :time', ['time' => \App\Actions\WhatsApp\QueueFirstContact::localTime($scheduledWhatsApp)]) }}</span>
+        @elseif ($canWhatsApp && ! $conversation)
             <flux:modal.trigger name="whatsapp">
                 <flux:button icon="chat-bubble-left-right" variant="primary">{{ __('Send WhatsApp') }}</flux:button>
             </flux:modal.trigger>

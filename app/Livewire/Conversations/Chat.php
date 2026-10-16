@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Conversations;
 
-use App\Domains\WhatsApp\FirstContactLimit;
+use App\Actions\WhatsApp\FirstContactSlots;
 use App\Domains\WhatsApp\WhatsAppInbox;
 use App\Jobs\MarkWhatsAppReadJob;
 use App\Jobs\SendWhatsAppReplyJob;
@@ -39,17 +39,15 @@ class Chat extends Component
         $this->markRead();
     }
 
-    public function send(WhatsAppInbox $inbox, FirstContactLimit $limit): void
+    public function send(WhatsAppInbox $inbox, FirstContactSlots $slots): void
     {
         $conversation = $this->conversation();
 
         $this->validate(['text' => ['required', 'string', 'max:2000']]);
 
-        if (! $inbox->hasReplied($conversation) && ! $limit->attempt($conversation->user)) {
-            $this->addError('text', __('This number never replied. To protect your WhatsApp from a ban, messages like this are limited to :count per hour. Try again in :minutes min.', [
-                'count' => FirstContactLimit::PER_HOUR,
-                'minutes' => $limit->availableInMinutes($conversation->user),
-            ]));
+        // Writing again to someone who never replied counts as a first contact: same caps and hours.
+        if (! $inbox->hasReplied($conversation) && $slots->bookNow($conversation->user) === null) {
+            $this->addError('text', __('This number never replied. To protect your WhatsApp, messages like this only go out on business hours and within the hourly and daily limits. Try again later.'));
 
             return;
         }
@@ -119,7 +117,7 @@ class Chat extends Component
             ->findOrFail($this->conversationId);
     }
 
-    public function render(WhatsAppInbox $inbox): View
+    public function render(WhatsAppInbox $inbox, FirstContactSlots $slots): View
     {
         $conversation = $this->conversation();
         $conversation->load('leads.project');
@@ -131,6 +129,8 @@ class Chat extends Component
             'messages' => $messages->take($this->limit)->reverse()->values(),
             'hasOlder' => $messages->count() > $this->limit,
             'hasReplied' => $inbox->hasReplied($conversation),
+            'perHour' => $slots->schedule()->perHour(),
+            'perDay' => $slots->dailyCap($conversation->user),
         ]);
     }
 }

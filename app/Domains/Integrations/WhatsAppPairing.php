@@ -67,7 +67,8 @@ class WhatsAppPairing
             $phone = null;
         }
 
-        $this->store($integration, ['connected_at' => now()->toIso8601String(), 'phone' => (string) $phone]);
+        // Paired again: the pause after a disconnect is over.
+        $this->store($integration, ['connected_at' => now()->toIso8601String(), 'phone' => (string) $phone, 'disconnected_at' => '', 'disconnect_reason' => '']);
 
         return true;
     }
@@ -77,7 +78,7 @@ class WhatsAppPairing
         $this->assertEvolution($integration);
 
         $this->client($integration)->logout();
-        $this->store($integration, ['connected_at' => '', 'phone' => '']);
+        $this->store($integration, ['connected_at' => '', 'phone' => '', 'disconnected_at' => '', 'disconnect_reason' => '']);
     }
 
     /** Best effort: the integration is going away, a server error must not stop it. */

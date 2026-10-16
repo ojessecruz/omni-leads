@@ -97,6 +97,19 @@ class Lead extends Model
         return $this->hasMany(LeadSource::class);
     }
 
+    /**
+     * First WhatsApp messages queued and not sent yet (no response, no error).
+     *
+     * @return HasMany<LeadSource, $this>
+     */
+    public function pendingWhatsAppSends(): HasMany
+    {
+        return $this->sources()
+            ->where('driver', 'whatsapp_outbound')
+            ->whereNull('raw_payload->response')
+            ->whereNull('raw_payload->error');
+    }
+
     /** @param  Builder<Lead>  $query */
     public function scopeInIcp(Builder $query, int $icpId): void
     {
