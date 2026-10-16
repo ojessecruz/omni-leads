@@ -6,8 +6,10 @@ use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\WhatsApp\Data\WhatsAppMessageData;
 use App\Domains\WhatsApp\Data\WhatsAppStatusUpdate;
 use App\Enums\LeadStatus;
+use App\Enums\WhatsAppMessageStatus;
 use App\Events\LeadStatusChanged;
 use App\Events\WhatsAppMessageStored;
+use App\Events\WhatsAppMessageUpdated;
 use App\Models\Lead;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
@@ -15,6 +17,7 @@ use App\Models\WhatsAppMessage;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\Mime\MimeTypes;
 
 /**
@@ -129,6 +132,7 @@ class WhatsAppInbox
         foreach ($messages as $message) {
             if ($update->status->isAfter($message->status)) {
                 $message->update(['status' => $update->status]);
+                WhatsAppMessageUpdated::dispatch($message);
             }
         }
     }
@@ -159,7 +163,8 @@ class WhatsAppInbox
 
         $mime = strtolower(trim(explode(';', $media['mimetype'] ?? $message->media_mime ?? 'application/octet-stream')[0]));
         $extension = (new MimeTypes)->getExtensions($mime)[0] ?? 'bin';
-        $path = sprintf('whatsapp/%d/%d/%d.%s', $message->conversation->user_id, $message->whatsapp_conversation_id, $message->id, $extension);
+        // Random suffix: the bucket may have a public domain, so paths must not be guessable.
+        $path = sprintf('whatsapp/%d/%d/%d-%s.%s', $message->conversation->user_id, $message->whatsapp_conversation_id, $message->id, Str::random(24), $extension);
 
         Storage::put($path, $bytes);
 
@@ -168,6 +173,43 @@ class WhatsAppInbox
             'media_mime' => $mime,
             'media_name' => $message->media_name ?? $media['fileName'] ?? null,
         ]);
+    }
+
+    /** True once the number has written at least once: replying to it is free of the first-contact limit. */
+    public function hasReplied(WhatsAppConversation $conversation): bool
+    {
+        return $conversation->messages()->where('from_me', false)->exists();
+    }
+
+    /**
+     * Clears the unread count and returns the incoming messages still to be marked as read
+     * on WhatsApp (they are flagged read here, so a second call returns nothing).
+     *
+     * @return list<array{remoteJid: string, id: string}>
+     */
+    public function markRead(WhatsAppConversation $conversation): array
+    {
+        return DB::transaction(function () use ($conversation) {
+            $unread = $conversation->messages()->where('from_me', false)->whereNull('status')->pluck('external_id')->all();
+
+            $conversation->messages()->where('from_me', false)->whereNull('status')->update(['status' => WhatsAppMessageStatus::Read]);
+            $conversation->update(['unread_count' => 0]);
+
+            return array_map(fn (string $id) => ['remoteJid' => $conversation->remote_jid, 'id' => $id], array_values($unread));
+        });
+    }
+
+    /** Sending from the inbox counts as contacting the leads that were not contacted yet. */
+    public function markContacted(WhatsAppConversation $conversation): void
+    {
+        foreach ($conversation->leads as $lead) {
+            $from = $lead->status;
+
+            if (in_array($from, [LeadStatus::New, LeadStatus::Qualified], true)) {
+                $lead->update(['status' => LeadStatus::Contacted]);
+                LeadStatusChanged::dispatch($lead, $from);
+            }
+        }
     }
 
     /** @param  list<Lead>  $leads */

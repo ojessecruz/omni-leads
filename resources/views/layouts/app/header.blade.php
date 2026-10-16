@@ -12,6 +12,8 @@
                 window.omniEcho = @js([
                     'key' => config('broadcasting.connections.reverb.key'),
                     'userId' => auth()->id(),
+                    'inboxUrl' => route('conversations.index'),
+                    'newMessage' => __('New WhatsApp message'),
                     ...config('broadcasting.connections.reverb.browser'),
                 ]);
             </script>
@@ -35,6 +37,11 @@
                 ['label' => __('Projects'), 'href' => route('projects.index'), 'current' => request()->routeIs('projects.*') || request()->routeIs('icps.*'), 'n' => '01'],
                 ['label' => __('Leads'), 'href' => route('leads.index'), 'current' => request()->routeIs('leads.*'), 'n' => '02'],
             ];
+            // The inbox shows up once WhatsApp is connected, or while there are chats to read.
+            $whatsappUnread = (int) \App\Models\WhatsAppConversation::query()->where('user_id', auth()->id())->sum('unread_count');
+            if ($whatsappUnread > 0 || auth()->user()->hasIntegration(\App\Enums\IntegrationProvider::Evolution)) {
+                $nav[] = ['label' => __('Conversations'), 'href' => route('conversations.index'), 'current' => request()->routeIs('conversations.*'), 'n' => '03', 'badge' => true];
+            }
         @endphp
 
         <header class="fixed inset-x-0 top-0 z-40 border-b border-white/6 bg-ink/70 backdrop-blur-md">
@@ -47,6 +54,9 @@
                            class="group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition {{ $item['current'] ? 'bg-white/6 text-white' : 'text-zinc-400 hover:text-white' }}">
                             <span class="font-mono text-2xs {{ $item['current'] ? 'text-signal' : 'text-zinc-600 group-hover:text-zinc-400' }}">{{ $item['n'] }}</span>
                             {{ $item['label'] }}
+                            @isset($item['badge'])
+                                <span data-whatsapp-unread @class(['font-mono rounded-full bg-signal px-1.5 text-2xs font-semibold text-zinc-950', 'hidden' => $whatsappUnread === 0])>{{ $whatsappUnread }}</span>
+                            @endisset
                         </a>
                     @endforeach
                 </nav>
@@ -72,7 +82,12 @@
                             <flux:menu.separator />
                             <div class="md:hidden">
                                 @foreach ($nav as $item)
-                                    <flux:menu.item :href="$item['href']" wire:navigate>{{ $item['label'] }}</flux:menu.item>
+                                    <flux:menu.item :href="$item['href']" wire:navigate>
+                                        {{ $item['label'] }}
+                                        @isset($item['badge'])
+                                            <span data-whatsapp-unread @class(['font-mono ml-2 rounded-full bg-signal px-1.5 text-2xs font-semibold text-zinc-950', 'hidden' => $whatsappUnread === 0])>{{ $whatsappUnread }}</span>
+                                        @endisset
+                                    </flux:menu.item>
                                 @endforeach
                                 <flux:menu.separator />
                             </div>

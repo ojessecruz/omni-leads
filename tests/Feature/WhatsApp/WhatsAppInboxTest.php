@@ -192,7 +192,7 @@ test('mídia recebida é baixada da Evolution para o disco', function () {
     app()->call([new DownloadWhatsAppMediaJob($message->id), 'handle']);
 
     $message->refresh();
-    expect($message->media_path)->toBe("whatsapp/{$user->id}/{$message->whatsapp_conversation_id}/{$message->id}.ogg")
+    expect($message->media_path)->toMatch("#^whatsapp/{$user->id}/{$message->whatsapp_conversation_id}/{$message->id}-[A-Za-z0-9]{24}\\.ogg$#")
         ->and($message->media_mime)->toBe('audio/ogg');
     Storage::assertExists($message->media_path);
     Http::assertSent(fn ($req) => $req['message']['key']['id'] === $message->external_id);

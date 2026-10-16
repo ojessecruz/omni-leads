@@ -3,7 +3,9 @@
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OutboundWebhookController;
 use App\Http\Controllers\ThemeController;
+use App\Http\Controllers\WhatsAppMediaController;
 use App\Http\Controllers\WhatsAppWebhookController;
+use App\Livewire\Conversations\Index as ConversationsIndex;
 use App\Livewire\Icps\Show as IcpShow;
 use App\Livewire\Icps\Wizard as IcpWizard;
 use App\Livewire\Leads\Index as LeadsIndex;
@@ -39,6 +41,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('leads', LeadsIndex::class)->name('leads.index');
     Route::livewire('leads/{lead}', LeadShow::class)->name('leads.show');
+
+    Route::livewire('conversations', ConversationsIndex::class)->name('conversations.index');
+    Route::get('conversations/media/{message}', WhatsAppMediaController::class)->name('conversations.media');
 });
 
 require __DIR__.'/settings.php';

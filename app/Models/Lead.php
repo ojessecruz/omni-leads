@@ -85,6 +85,12 @@ class Lead extends Model
         return $this->belongsToMany(Icp::class)->withPivot('created_at');
     }
 
+    /** @return BelongsToMany<WhatsAppConversation, $this> */
+    public function whatsappConversations(): BelongsToMany
+    {
+        return $this->belongsToMany(WhatsAppConversation::class, 'whatsapp_conversation_lead', 'lead_id', 'whatsapp_conversation_id');
+    }
+
     /** @return HasMany<LeadSource, $this> */
     public function sources(): HasMany
     {
