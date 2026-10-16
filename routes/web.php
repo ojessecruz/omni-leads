@@ -14,17 +14,17 @@ use App\Livewire\Leads\Show as LeadShow;
 use App\Livewire\Projects\Index as ProjectsIndex;
 use App\Livewire\Projects\Settings as ProjectSettings;
 use App\Livewire\Projects\Show as ProjectShow;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
 Route::post('outbound/{connection}/webhook/{secret}', OutboundWebhookController::class)
-    ->withoutMiddleware(ValidateCsrfToken::class)
+    ->withoutMiddleware(PreventRequestForgery::class)
     ->middleware('throttle:600,1')
     ->name('outbound.webhook');
 Route::post('whatsapp/{integration}/webhook/{secret}', WhatsAppWebhookController::class)
-    ->withoutMiddleware(ValidateCsrfToken::class)
+    ->withoutMiddleware(PreventRequestForgery::class)
     ->middleware('throttle:1200,1')
     ->name('whatsapp.webhook');
 Route::post('locale', LocaleController::class)->name('locale.update');
