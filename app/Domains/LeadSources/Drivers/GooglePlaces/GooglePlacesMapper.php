@@ -8,6 +8,7 @@ use App\Support\Countries;
 
 /**
  * Grid of text queries: "{keyword} in {region}" plus "{keyword}" restricted to each map area.
+ * Region queries also carry the place, which the driver turns into bounds when it can.
  * Without regions or areas, uses the country.
  * Each grid cell is an independent search (capped at 60 results each),
  * so splitting by city/neighborhood multiplies the reach.
@@ -22,10 +23,13 @@ class GooglePlacesMapper implements QueryMapper
         foreach ($criteria->keywords as $keyword) {
             if ($criteria->hasLocalities()) {
                 foreach ($criteria->regions as $region) {
+                    $place = $this->withCountry($region, $country);
                     $queries[] = [
-                        'text' => "{$keyword} in ".$this->withCountry($region, $country),
+                        'text' => "{$keyword} in {$place}",
                         'keyword' => $keyword,
                         'region' => $region,
+                        // The driver pins the search to this place's bounds when Google knows it.
+                        'place' => $place,
                         'region_code' => $country ? strtolower($country) : null,
                     ];
                 }

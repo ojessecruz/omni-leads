@@ -77,7 +77,8 @@ test('com um só país, a região vai com o nome do país e o region_code', func
         'barbearia in SC, Brazil',
         'barbearia in Juiz de Fora, MG, Brazil',
         'barbearia in Lisboa, Portugal, Brazil',
-    ])->and(array_unique(array_column($queries, 'region_code')))->toBe(['br']);
+    ])->and(array_unique(array_column($queries, 'region_code')))->toBe(['br'])
+        ->and(array_column($queries, 'place'))->toBe(['SC, Brazil', 'Juiz de Fora, MG, Brazil', 'Lisboa, Portugal, Brazil']);
 });
 
 test('não repete o país quando a região já o menciona', function () {

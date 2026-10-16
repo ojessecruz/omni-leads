@@ -11,6 +11,7 @@ use App\Domains\LeadSources\Contracts\VerifiesCredentials;
 use App\Domains\LeadSources\Data\LeadDTO;
 use Generator;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use RuntimeException;
@@ -21,6 +22,10 @@ use RuntimeException;
  * Map areas go out as locationRestriction (the API only takes a rectangle there),
  * so places in the rectangle's corners are dropped by distance afterwards.
  *
+ * Typed regions ("Leopoldina") are looked up first and, when Google knows them as a
+ * place (city, state, neighborhood…), the keyword is searched inside its bounds. A plain
+ * "barbearia in Leopoldina" also matches names like "Barbearia Vila Leopoldina" in another city.
+ *
  * @see https://developers.google.com/maps/documentation/places/web-service/text-search
  */
 class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCredentials
@@ -28,6 +33,12 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
     private int $requests = 0;
 
     public const string ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+
+    /** Place types whose viewport is a usable search boundary. */
+    private const array BOUNDED_TYPES = [
+        'locality', 'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3',
+        'sublocality', 'sublocality_level_1', 'neighborhood', 'postal_code', 'colloquial_area',
+    ];
 
     private const string FIELD_MASK = 'nextPageToken,places.id,places.displayName,places.formattedAddress,'
         .'places.addressComponents,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,'
@@ -82,15 +93,18 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
         $pageToken = null;
         $area = is_array($query['area'] ?? null) ? GeoArea::fromArray($query['area']) : null;
         $maxPages = max(1, (int) ($this->config['max_pages'] ?? 3));
+        $bounds = $area ? $area->boundingBox() : $this->placeBounds($query);
+        // Inside the bounds the keyword alone is enough; the place name in the text would match business names again.
+        $text = $bounds && ! $area && isset($query['keyword']) ? $query['keyword'] : $query['text'];
 
         for ($page = 0; $page < $maxPages; $page++) {
             $body = array_filter([
-                'textQuery' => $query['text'],
+                'textQuery' => $text,
                 'pageSize' => 20,
                 'pageToken' => $pageToken,
                 'regionCode' => $query['region_code'] ?? null,
                 'languageCode' => $this->languageFor($query['region_code'] ?? null),
-                'locationRestriction' => $area ? ['rectangle' => $area->boundingBox()] : null,
+                'locationRestriction' => $bounds ? ['rectangle' => $bounds] : null,
             ], fn ($v) => $v !== null);
 
             $this->throttle();
@@ -169,6 +183,57 @@ class GooglePlacesDriver implements LeadSourceDriver, TracksRequests, VerifiesCr
             cnpj: null,
             rawPayload: ['query' => $query, 'place' => $place],
         );
+    }
+
+    /**
+     * Viewport of the query's place, looked up once per place and cached for a month.
+     *
+     * @param  array<string, mixed>  $query
+     * @return array{low: array{latitude: float, longitude: float}, high: array{latitude: float, longitude: float}}|null
+     */
+    private function placeBounds(array $query): ?array
+    {
+        $place = $query['place'] ?? null;
+
+        if (! is_string($place) || $place === '') {
+            return null;
+        }
+
+        $regionCode = $query['region_code'] ?? null;
+        $key = 'google-places:bounds:'.md5(mb_strtolower($place).'|'.$regionCode);
+
+        // Wrapped so "not a place" is cached too.
+        return Cache::remember($key, now()->addDays(30), fn () => ['bounds' => $this->lookupBounds($place, $regionCode)])['bounds'];
+    }
+
+    /** @return array{low: array{latitude: float, longitude: float}, high: array{latitude: float, longitude: float}}|null */
+    private function lookupBounds(string $place, ?string $regionCode): ?array
+    {
+        $this->throttle();
+        $this->requests++;
+
+        $response = $this->client('places.types,places.viewport')->post(self::ENDPOINT, array_filter([
+            'textQuery' => $place,
+            'pageSize' => 1,
+            'regionCode' => $regionCode,
+            'languageCode' => $this->languageFor($regionCode),
+        ], fn ($v) => $v !== null));
+
+        $first = $response->successful() ? $response->json('places.0') : null;
+        $viewport = is_array($first) ? ($first['viewport'] ?? null) : null;
+
+        if (! is_array($viewport) || array_intersect($first['types'] ?? [], self::BOUNDED_TYPES) === []) {
+            return null;
+        }
+
+        $point = fn (mixed $p): ?array => is_array($p) && is_numeric($p['latitude'] ?? null) && is_numeric($p['longitude'] ?? null)
+            ? ['latitude' => (float) $p['latitude'], 'longitude' => (float) $p['longitude']]
+            : null;
+
+        $low = $point($viewport['low'] ?? null);
+        $high = $point($viewport['high'] ?? null);
+
+        return $low && $high ? ['low' => $low, 'high' => $high] : null;
     }
 
     /** @param  array<string, mixed>  $place */
