@@ -90,3 +90,21 @@ test('no R2 tudo fica dentro da pasta omnileads do bucket', function () {
         ->and($disk->url('avatars/1/foto.jpg'))->toBe('https://media.omni.test/omnileads/avatars/1/foto.jpg')
         ->and($disk->temporaryUrl('avatars/1/foto.jpg', now()->addHour()))->toContain('/compartilhado/omnileads/avatars/1/foto.jpg');
 });
+
+test('admin vê o motivo da falha do storage', function () {
+    config(['app.admins' => ['admin@omni.test']]);
+    $admin = User::factory()->create(['email' => 'admin@omni.test']);
+    config(['filesystems.disks.r2' => [...config('filesystems.disks.r2'), 'key' => 'x', 'secret' => 'x', 'bucket' => 'b', 'endpoint' => 'http://127.0.0.1:1']]);
+    Storage::forgetDisk('r2');
+
+    $component = Livewire::actingAs($admin)->test(Profile::class)
+        ->set('photo', UploadedFile::fake()->image('eu.jpg', 300, 300))
+        ->assertHasErrors('photo');
+
+    expect($component->errors()->first('photo'))->toStartWith('Could not save the photo: ');
+});
+
+test('o R2 só manda checksum quando a operação exige', function () {
+    expect(config('filesystems.disks.r2'))
+        ->toMatchArray(['request_checksum_calculation' => 'when_required', 'response_checksum_validation' => 'when_required']);
+});

@@ -73,6 +73,10 @@ return [
             // The bucket is shared with other apps: everything lives under this folder.
             'root' => env('R2_ROOT', 'omnileads'),
             'use_path_style_endpoint' => true,
+            // AWS SDK >= 3.337 adds CRC32 checksums (streamed with a trailer) to every upload by
+            // default; R2 rejects that, so checksums are only sent when an operation requires them.
+            'request_checksum_calculation' => 'when_required',
+            'response_checksum_validation' => 'when_required',
             'throw' => true,
             'report' => false,
         ],
