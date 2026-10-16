@@ -42,6 +42,13 @@ class Index extends Component
     #[Url]
     public string $driver = '';
 
+    #[Url]
+    public string $city = '';
+
+    /** score | recent | name */
+    #[Url(except: 'score')]
+    public string $sort = 'score';
+
     /** @var array<int, int> */
     public array $selected = [];
 
@@ -49,7 +56,11 @@ class Index extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'icp', 'status', 'minScore', 'country', 'driver'], true)) {
+        if ($property === 'sort' && ! in_array($this->sort, ['score', 'recent', 'name'], true)) {
+            $this->sort = 'score';
+        }
+
+        if (in_array($property, ['search', 'icp', 'status', 'minScore', 'country', 'driver', 'city', 'sort'], true)) {
             $this->resetPage();
             $this->reset('selected', 'selectAll');
         }
@@ -66,26 +77,45 @@ class Index extends Component
     /** Bulk status change. Qualified is owned by the scorer, so only contacted/discarded are allowed here. */
     public function markAs(string $status): void
     {
+        $status = $this->manualStatus($status);
+        $count = $this->changeStatus($this->selected, $status);
+
+        $this->reset('selected', 'selectAll');
+
+        Flux::toast(text: trans_choice(':count lead marked as :status|:count leads marked as :status', $count, ['status' => $status->label()]));
+    }
+
+    /** Row action: same rules as the bulk one, without touching the selection. */
+    public function markOne(int $leadId, string $status): void
+    {
+        $status = $this->manualStatus($status);
+        $count = $this->changeStatus([$leadId], $status);
+
+        Flux::toast(text: trans_choice(':count lead marked as :status|:count leads marked as :status', $count, ['status' => $status->label()]));
+    }
+
+    protected function manualStatus(string $status): LeadStatus
+    {
         Validator::make(
             ['status' => $status],
             ['status' => [Rule::enum(LeadStatus::class)->only([LeadStatus::Contacted, LeadStatus::Discarded])]],
         )->validate();
 
-        $status = LeadStatus::from($status);
+        return LeadStatus::from($status);
+    }
 
-        $leads = $this->query()->whereIn('id', $this->selected)->where('status', '!=', $status)->get();
-        $count = 0;
+    /** @param  array<int, int>  $ids */
+    protected function changeStatus(array $ids, LeadStatus $status): int
+    {
+        $leads = $this->query()->whereIn('id', $ids)->where('status', '!=', $status)->get();
 
         foreach ($leads as $lead) {
             $from = $lead->status;
             $lead->update(['status' => $status]);
             LeadStatusChanged::dispatch($lead, $from);
-            $count++;
         }
 
-        $this->reset('selected', 'selectAll');
-
-        Flux::toast(text: trans_choice(':count lead marked as :status|:count leads marked as :status', $count, ['status' => $status->label()]));
+        return $leads->count();
     }
 
     public function export(LeadCsvExporter $exporter): StreamedResponse
@@ -112,7 +142,7 @@ class Index extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'icp', 'status', 'minScore', 'country', 'driver', 'selected', 'selectAll');
+        $this->reset('search', 'icp', 'status', 'minScore', 'country', 'driver', 'city', 'selected', 'selectAll');
         $this->resetPage();
     }
 
@@ -121,19 +151,30 @@ class Index extends Component
     /** @return Builder<Lead> */
     protected function pageQuery(): Builder
     {
-        return $this->query()
-            ->orderByDesc('score')
-            ->latest('id')
-            ->forPage($this->getPage(), self::PER_PAGE);
+        return $this->sorted($this->query())->forPage($this->getPage(), self::PER_PAGE);
+    }
+
+    /**
+     * @param  Builder<Lead>  $query
+     * @return Builder<Lead>
+     */
+    protected function sorted(Builder $query): Builder
+    {
+        return match ($this->sort) {
+            'recent' => $query->latest('created_at')->latest('id'),
+            'name' => $query->orderByRaw('lower(coalesce(company_name, name, \'\'))')->orderBy('id'),
+            default => $query->orderByDesc('score')->latest('id'),
+        };
     }
 
     /** @return Builder<Lead> */
-    protected function query(): Builder
+    protected function query(bool $withStatus = true): Builder
     {
         return Lead::query()
             ->whereHas('project', fn (Builder $q) => $q->where('user_id', auth()->id()))
             ->when($this->icp !== '', fn (Builder $q) => $q->inIcp((int) $this->icp))
-            ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
+            ->when($withStatus && $this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
+            ->when($this->city !== '', fn (Builder $q) => $q->where('city', $this->city))
             ->when($this->minScore > 0, fn (Builder $q) => $q->where('score', '>=', $this->minScore))
             ->when($this->country !== '', fn (Builder $q) => $q->where('country', strtoupper($this->country)))
             ->when($this->driver !== '', fn (Builder $q) => $q->fromDriver($this->driver))
@@ -158,24 +199,30 @@ class Index extends Component
             ->get(['id', 'name']);
 
         $countries = (clone $base)->distinct()->orderBy('country')->pluck('country');
+        $cities = (clone $base)->whereNotNull('city')->distinct()->orderBy('city')->pluck('city');
+
+        // Tab counters follow every filter but the status itself.
+        $statusCounts = $this->query(withStatus: false)->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
         $drivers = LeadSource::query()
             ->whereIn('lead_id', (clone $base)->select('id'))
             ->distinct()
             ->orderBy('driver')
             ->pluck('driver');
 
-        $leads = $this->query()
-            ->with(['icp:id,name', 'sources:id,lead_id,driver'])
-            ->orderByDesc('score')
-            ->latest('id')
+        $leads = $this->sorted($this->query())
+            ->with(['icp:id,name', 'sources:id,lead_id,driver', 'whatsappConversations:id'])
             ->paginate(self::PER_PAGE);
 
         return view('livewire.leads.index', [
             'leads' => $leads,
             'icps' => $icps,
             'countries' => $countries,
+            'cities' => $cities,
+            'statusCounts' => $statusCounts,
+            'qualifiedAt' => (int) config('lead-scoring.qualified_threshold', 60),
             'drivers' => $drivers,
-            'statuses' => LeadStatus::cases(),
+            // Funnel order for the tabs.
+            'statuses' => [LeadStatus::New, LeadStatus::Qualified, LeadStatus::Contacted, LeadStatus::Replied, LeadStatus::Discarded],
         ]);
     }
 }
