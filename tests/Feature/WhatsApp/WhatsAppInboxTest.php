@@ -15,6 +15,7 @@ use App\Jobs\DownloadWhatsAppMediaJob;
 use App\Jobs\ProcessWhatsAppWebhookJob;
 use App\Jobs\RefreshWhatsAppAvatarJob;
 use App\Jobs\SendWhatsAppJob;
+use App\Livewire\Settings\Integrations;
 use App\Models\Icp;
 use App\Models\Integration;
 use App\Models\Lead;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Livewire\Livewire;
 
 beforeEach(function () {
     config()->set('enrichment.evolution.requests_per_minute', 100);
@@ -267,4 +269,23 @@ test('mensagem nova é transmitida no canal privado do dono com o total de não 
             && $payload['name'] === 'Ana'
             && $payload['preview'] === 'Oi, tenho interesse';
     });
+});
+
+test('erro ao registrar o webhook fica visível em Integrações e o botão tenta de novo', function () {
+    URL::forceRootUrl('https://app.omnileads.example');
+    URL::forceScheme('https');
+    Http::fake(['https://evo.test/webhook/set/main' => Http::sequence()
+        ->push(['response' => ['message' => ['instance not found']]], 404)
+        ->push(['webhook' => ['enabled' => true]])]);
+    $user = User::factory()->create(['locale' => 'en']);
+    $integration = connectIntegration($user, IntegrationProvider::Evolution);
+
+    expect(fn () => app(RegisterWhatsAppWebhook::class)($integration))->toThrow(RuntimeException::class);
+    expect($integration->fresh()->credentials['webhook_error'])->toContain('instance not found');
+
+    $this->actingAs($user)->get(route('integrations.edit'))->assertSee('instance not found');
+
+    Livewire::actingAs($user)->test(Integrations::class)->call('registerInboxWebhook');
+
+    expect($integration->fresh()->credentials)->toHaveKey('webhook_url')->not->toHaveKey('webhook_error');
 });

@@ -209,6 +209,26 @@ class Integrations extends Component
         }
     }
 
+    /** Sends the inbox webhook to Evolution again and shows the error, if any. */
+    public function registerInboxWebhook(RegisterWhatsAppWebhook $register): void
+    {
+        $integration = Auth::user()->integration(IntegrationProvider::Evolution);
+
+        if ($integration === null) {
+            return;
+        }
+
+        try {
+            $register($integration, force: true)
+                ? Flux::toast(variant: 'success', text: __('Inbox webhook registered.'))
+                : Flux::toast(variant: 'danger', text: __('The phone must be paired, and the app reachable from the internet.'));
+        } catch (RuntimeException $e) {
+            Flux::toast(variant: 'danger', text: __('Could not register the webhook: :reason', ['reason' => $e->getMessage()]));
+        }
+
+        Auth::user()->unsetRelation('integrations');
+    }
+
     public function cancelPairing(): void
     {
         $this->whatsappQr = null;

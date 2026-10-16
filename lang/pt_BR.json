@@ -662,5 +662,11 @@
     "Type a message": "Digite uma mensagem",
     "WhatsApp chats with numbers that are leads in your projects. Other chats on your phone never reach Omni Leads.": "Conversas de WhatsApp com números que são leads nos seus projetos. As outras conversas do seu celular nunca chegam ao Omni Leads.",
     "only with your leads.": "só com seus leads.",
-    "phone": "celular"
+    "phone": "celular",
+    "Inbox webhook registered.": "Webhook da caixa registrado.",
+    "The phone must be paired, and the app reachable from the internet.": "O celular precisa estar conectado e o app acessível pela internet.",
+    "Inbox receiving replies and delivery status.": "Conversas recebendo respostas e status de entrega.",
+    "Inbox not receiving: :reason": "Conversas não estão recebendo: :reason",
+    "Inbox webhook not registered yet.": "Webhook das Conversas ainda não registrado.",
+    "Register webhook": "Registrar webhook"
 }

@@ -44,9 +44,18 @@ class RegisterWhatsAppWebhook
             return true;
         }
 
-        $this->evolution->withCredentials($credentials)->setWebhook($url, self::EVENTS);
+        try {
+            $this->evolution->withCredentials($credentials)->setWebhook($url, self::EVENTS);
+        } catch (RuntimeException $e) {
+            // Kept for Settings > Integrations, which shows why replies are not arriving.
+            $integration->update(['credentials' => [...$credentials, 'webhook_error' => mb_substr($e->getMessage(), 0, 300)]]);
 
-        $integration->update(['credentials' => [...$credentials, 'webhook_secret' => $secret, 'webhook_url' => $url]]);
+            throw $e;
+        }
+
+        $saved = [...$credentials, 'webhook_secret' => $secret, 'webhook_url' => $url];
+        unset($saved['webhook_error']);
+        $integration->update(['credentials' => $saved]);
 
         return true;
     }

@@ -6,6 +6,17 @@
             <span class="chip chip-signal">{{ __('WhatsApp connected') }}{{ filled($whatsapp['phone'] ?? null) ? ' · +'.$whatsapp['phone'] : '' }}</span>
             <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="disconnectPhone" :wire:confirm="__('Disconnect this phone? Sending and WhatsApp checks stop until you pair again.')">{{ __('Disconnect phone') }}</flux:button>
         </div>
+        {{-- Replies and delivery ticks reach the inbox through this webhook. --}}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+            @if (filled($whatsapp['webhook_url'] ?? null))
+                <span class="text-zinc-400"><span class="text-signal">●</span> {{ __('Inbox receiving replies and delivery status.') }}</span>
+            @elseif (filled($whatsapp['webhook_error'] ?? null))
+                <span class="min-w-0 text-red-400">{{ __('Inbox not receiving: :reason', ['reason' => $whatsapp['webhook_error']]) }}</span>
+            @else
+                <span class="text-zinc-400"><span class="text-amber-400">●</span> {{ __('Inbox webhook not registered yet.') }}</span>
+            @endif
+            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="registerInboxWebhook">{{ __('Register webhook') }}</flux:button>
+        </div>
     @elseif ($whatsappQr)
         <div wire:poll.3s="checkPhone" class="mt-3 flex flex-col items-center gap-3 text-center">
             <img src="{{ $whatsappQr }}" alt="{{ __('WhatsApp QR code') }}" class="size-56 rounded-lg bg-[#fff] p-2" />
