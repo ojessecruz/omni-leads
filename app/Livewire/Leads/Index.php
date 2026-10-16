@@ -210,9 +210,17 @@ class Index extends Component
 
         $icps = Icp::query()
             ->whereHas('project', fn (Builder $q) => $q->where('user_id', auth()->id()))
+            ->with('project:id,name')
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Icp $i) => [$i->id => ['label' => $i->name, 'count' => (int) ($icpCounts[$i->id] ?? 0)]]);
+            ->get(['id', 'name', 'project_id']);
+
+        // Same ICP name in two projects would read as a duplicate: name the project then.
+        $manyProjects = $icps->pluck('project_id')->unique()->count() > 1;
+        $icps = $icps->mapWithKeys(fn (Icp $i) => [$i->id => [
+            'label' => $i->name,
+            'hint' => $manyProjects ? $i->project->name : null,
+            'count' => (int) ($icpCounts[$i->id] ?? 0),
+        ]]);
 
         // Only cities with leads under the other filters, plus the selected one.
         $cities = $this->query(['city'])->toBase()

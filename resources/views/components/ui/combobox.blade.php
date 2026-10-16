@@ -1,7 +1,7 @@
 {{--
     Filter dropdown bound to a Livewire property: themed panel, optional search (on by
     default past 8 options), per-option counts and keyboard navigation.
-    options: [value => ['label' => string, 'count' => ?int]]; allLabel adds an empty-value
+    options: [value => ['label' => string, 'count' => ?int, 'hint' => ?string]]; allLabel adds an empty-value
     "All" entry on top. Re-keyed when the options change, since x-data reads them once.
 --}}
 @props([
@@ -14,9 +14,9 @@
 ])
 
 @php
-    $items = collect($options)->map(fn ($o, $v) => ['value' => (string) $v, 'label' => (string) $o['label'], 'count' => $o['count'] ?? null])->values();
+    $items = collect($options)->map(fn ($o, $v) => ['value' => (string) $v, 'label' => (string) $o['label'], 'count' => $o['count'] ?? null, 'hint' => $o['hint'] ?? null])->values();
     if ($allLabel !== null) {
-        $items->prepend(['value' => '', 'label' => $allLabel, 'count' => null]);
+        $items->prepend(['value' => '', 'label' => $allLabel, 'count' => null, 'hint' => null]);
     }
     $searchable ??= $items->count() > 8;
 @endphp
@@ -30,7 +30,7 @@
         value: $wire.entangle('{{ $model }}').live,
         items: @js($items),
         norm: (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(),
-        get filtered() { const q = this.norm(this.q.trim()); return q ? this.items.filter(i => this.norm(i.label).includes(q)) : this.items },
+        get filtered() { const q = this.norm(this.q.trim()); return q ? this.items.filter(i => this.norm(i.label + ' ' + (i.hint ?? '')).includes(q)) : this.items },
         get current() { return this.items.find(i => i.value === String(this.value ?? '')) },
         toggle() { this.open ? this.close() : this.show() },
         show() { this.open = true; this.q = ''; this.active = Math.max(0, this.filtered.findIndex(i => i.value === String(this.value ?? ''))); this.$nextTick(() => (this.$refs.search ?? this.$refs.list).focus()) },
@@ -62,7 +62,7 @@
         x-show="open"
         x-cloak
         x-transition.opacity.duration.100ms
-        class="absolute left-0 z-40 mt-1 w-full min-w-60 overflow-hidden rounded-xl border border-white/10 bg-panel shadow-glow"
+        class="absolute left-0 z-40 mt-1 w-full min-w-72 overflow-hidden rounded-xl border border-white/10 bg-panel shadow-glow"
     >
         @if ($searchable)
             <div class="border-b border-white/8 p-2">
@@ -100,7 +100,10 @@
                     :class="[index === active ? 'bg-white/8 text-white' : 'text-zinc-300', item.count === 0 ? 'opacity-50' : '']"
                 >
                     <span class="w-4 shrink-0 text-signal" x-text="item.value === String(value ?? '') ? '✓' : ''"></span>
-                    <span class="min-w-0 flex-1 truncate" x-text="item.label"></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate" x-text="item.label"></span>
+                        <span x-show="item.hint" class="block truncate text-2xs text-zinc-500" x-text="item.hint"></span>
+                    </span>
                     <span x-show="item.count != null" class="font-mono text-2xs text-zinc-500" x-text="item.count?.toLocaleString(document.documentElement.lang)"></span>
                 </li>
             </template>
