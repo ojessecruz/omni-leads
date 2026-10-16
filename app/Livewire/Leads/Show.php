@@ -2,16 +2,15 @@
 
 namespace App\Livewire\Leads;
 
+use App\Actions\WhatsApp\QueueFirstContact;
 use App\Domains\Leads\LeadScorer;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
-use App\Domains\WhatsApp\FirstContactLimit;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Jobs\EnrichLeadJob;
 use App\Jobs\PushLeadsToOutboundJob;
-use App\Jobs\SendWhatsAppJob;
 use App\Models\Lead;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
@@ -20,6 +19,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use RuntimeException;
 
 class Show extends Component
 {
@@ -35,31 +35,20 @@ class Show extends Component
         $this->whatsappText = WhatsAppTemplate::render($lead->project->whatsapp_template, $lead);
     }
 
-    public function sendWhatsApp(FirstContactLimit $limit): void
+    public function sendWhatsApp(QueueFirstContact $queue): void
     {
         Gate::authorize('update', $this->lead->project);
 
         $this->validate(['whatsappText' => ['required', 'string', 'max:2000']]);
 
-        if (! $this->lead->phone) {
-            Flux::toast(variant: 'danger', text: __('Lead has no phone.'));
-
-            return;
-        }
-
         // The modal only exists while the lead has no conversation: this is always a first contact.
-        $user = $this->lead->project->user;
-
-        if (! $limit->attempt($user)) {
-            $this->addError('whatsappText', __('This number never replied. To protect your WhatsApp from a ban, messages like this are limited to :count per hour. Try again in :minutes min.', [
-                'count' => FirstContactLimit::PER_HOUR,
-                'minutes' => $limit->availableInMinutes($user),
-            ]));
+        try {
+            $queue($this->lead, $this->whatsappText);
+        } catch (RuntimeException $e) {
+            $this->addError('whatsappText', $e->getMessage());
 
             return;
         }
-
-        SendWhatsAppJob::dispatch($this->lead->id, $this->whatsappText);
 
         Flux::modal('whatsapp')->close();
         Flux::toast(variant: 'success', text: __('Message queued. The lead will be marked as contacted after sending.'));
