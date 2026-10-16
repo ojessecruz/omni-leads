@@ -91,14 +91,14 @@ test('dispensar esconde o painel e fica gravado', function () {
 test('integrações mostram o guia da chave do Google Places, aberto enquanto não há chave', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user)->get(route('integrations.edit'))
+    $this->actingAs($user)->get(route('integrations.edit', ['open' => 'google_places']))
         ->assertSee('id="google-places-guide"', false)
         ->assertSee('places.googleapis.com')
         ->assertSee('How to get your key');
 
     connectIntegration($user, IntegrationProvider::GooglePlaces, ['key' => 'k']);
 
-    $html = $this->actingAs($user->fresh())->get(route('integrations.edit'))->getContent();
+    $html = $this->actingAs($user->fresh())->get(route('integrations.edit', ['open' => 'google_places']))->getContent();
     expect($html)->toMatch('/<details id="google-places-guide"[^>]*>/')
         ->not->toMatch('/<details id="google-places-guide"[^>]*\sopen[\s>]/');
 });

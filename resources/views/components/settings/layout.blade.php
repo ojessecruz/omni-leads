@@ -17,7 +17,7 @@
         <div class="panel p-6 md:p-8">
             <h2 class="display text-3xl font-semibold text-white">{{ $heading ?? '' }}</h2>
             <p class="mt-2 text-sm text-zinc-400">{{ $subheading ?? '' }}</p>
-            <div class="mt-6 w-full max-w-lg">
+            <div @class(['mt-6 w-full', 'max-w-lg' => ! ($wide ?? false)])>
                 {{ $slot }}
             </div>
         </div>
