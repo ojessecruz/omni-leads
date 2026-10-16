@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Renderless;
 use Livewire\Component;
 
 /**
@@ -75,11 +76,19 @@ class Chat extends Component
 
         if (($payload['from_me'] ?? false) === true) {
             array_shift($this->pending);
-        } else {
+        } elseif (($payload['seen'] ?? true) === true) {
+            // Read receipts go out only while the user is looking; markSeen() catches up on return.
             $this->markRead();
         }
 
         $this->dispatch('chat-scroll');
+    }
+
+    /** The user came back to the tab/window with this chat open. Incoming messages show no ticks, so no redraw. */
+    #[Renderless]
+    public function markSeen(): void
+    {
+        $this->markRead();
     }
 
     /** Redraws the ticks. */

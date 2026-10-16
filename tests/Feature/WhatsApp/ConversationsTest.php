@@ -85,6 +85,27 @@ test('abrir o chat zera as não lidas e envia as confirmações de leitura', fun
     Queue::assertPushed(MarkWhatsAppReadJob::class, fn ($job) => $job->messages === [['remoteJid' => '5511987654321@s.whatsapp.net', 'id' => 'IN1']]);
 });
 
+test('mensagem que chega com o chat aberto só vira lida quando o usuário está olhando', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $conversation = conversationWithLead($user);
+    $chat = Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id]);
+    Queue::fake();
+
+    // Tab hidden or window unfocused: stays unread, no blue ticks for the contact.
+    $conversation->update(['unread_count' => 1]);
+    $chat->dispatch('whatsapp-message', payload: ['conversation_id' => $conversation->id, 'from_me' => false, 'seen' => false]);
+
+    expect($conversation->fresh()->unread_count)->toBe(1);
+    Queue::assertNotPushed(MarkWhatsAppReadJob::class);
+
+    // Back on the tab.
+    $chat->call('markSeen')->assertDispatched('whatsapp-read', total: 0);
+
+    expect($conversation->fresh()->unread_count)->toBe(0);
+    Queue::assertPushed(MarkWhatsAppReadJob::class);
+});
+
 test('chat de outro usuário não abre', function () {
     $conversation = conversationWithLead(User::factory()->create());
 
