@@ -41,7 +41,7 @@ class WhatsAppMessageStored implements ShouldBroadcast
             'conversation_id' => $conversation->id,
             'message_id' => $this->message->id,
             'from_me' => $this->message->from_me,
-            'name' => $conversation->name ?? $conversation->phone,
+            'name' => $conversation->displayName(),
             'preview' => $conversation->last_message_preview,
             'unread_total' => (int) WhatsAppConversation::query()->where('user_id', $conversation->user_id)->sum('unread_count'),
         ];

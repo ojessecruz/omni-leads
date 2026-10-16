@@ -2,8 +2,9 @@
      x-data="{ id: {{ $conversation->id }}, init() { window.omniActiveConversation = this.id; this.$nextTick(() => this.scroll()); }, destroy() { if (window.omniActiveConversation === this.id) window.omniActiveConversation = null; }, scroll() { this.$refs.log.scrollTop = this.$refs.log.scrollHeight; } }"
      x-on:chat-scroll.window="$nextTick(() => scroll())">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/6 px-5 py-3">
+        <x-whatsapp.avatar :conversation="$conversation" class="size-9" />
         <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-white">{{ $conversation->name ?? '+'.$conversation->phone }}</p>
+            <p class="truncate text-sm font-medium text-white">{{ $conversation->displayName() }}</p>
             <p class="font-mono text-2xs text-zinc-500">+{{ $conversation->phone }}</p>
         </div>
         <div class="flex flex-wrap gap-1.5">
