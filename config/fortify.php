@@ -170,9 +170,10 @@ return [
             'confirmPassword' => true,
             // 'window' => 0
         ]),
-        Features::passkeys([
+        // Passkey sign-in is off unless PASSKEYS_ENABLED=true: email + password (and 2FA) only.
+        ...(env('PASSKEYS_ENABLED', false) ? [Features::passkeys([
             'confirmPassword' => true,
-        ]),
+        ])] : []),
     ],
 
 ];
