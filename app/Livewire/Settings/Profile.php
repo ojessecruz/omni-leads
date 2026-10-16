@@ -12,6 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Throwable;
 
 #[Title('Profile settings')]
 class Profile extends Component
@@ -62,7 +63,18 @@ class Profile extends Component
         $user = Auth::user();
         $old = $user->avatar_path;
 
-        $user->avatar_path = $this->photo->store('avatars/'.$user->id);
+        try {
+            $path = $this->photo->store('avatars/'.$user->id);
+        } catch (Throwable $e) {
+            // Usually storage not configured (e.g. R2 keys missing): tell the user instead of a 500.
+            report($e);
+            $this->reset('photo');
+            $this->addError('photo', __('Could not save the photo. Try again later.'));
+
+            return;
+        }
+
+        $user->avatar_path = $path;
         $user->save();
 
         if ($old !== null) {

@@ -69,3 +69,16 @@ test('o header mostra a foto quando existe', function () {
     $this->actingAs($user)->get(route('dashboard'))
         ->assertSee($user->avatarUrl(), false);
 });
+
+test('se o storage falhar, mostra erro em vez de quebrar a página', function () {
+    $user = User::factory()->create();
+    // Real R2 driver pointed at a closed port, as when production has no reachable bucket/keys.
+    config(['filesystems.disks.r2' => [...config('filesystems.disks.r2'), 'key' => 'x', 'secret' => 'x', 'bucket' => 'b', 'endpoint' => 'http://127.0.0.1:1']]);
+    Storage::forgetDisk('r2');
+
+    Livewire::actingAs($user)->test(Profile::class)
+        ->set('photo', UploadedFile::fake()->image('eu.jpg', 300, 300))
+        ->assertHasErrors('photo');
+
+    expect($user->fresh()->avatar_path)->toBeNull();
+});
