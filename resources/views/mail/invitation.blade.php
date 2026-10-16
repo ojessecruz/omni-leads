@@ -1,7 +1,7 @@
 <x-mail::message>
-<p class="eyebrow">{{ __('Invitation') }}</p>
+<p class="eyebrow">00 / {{ __('Invitation') }} <span class="signal">●</span></p>
 
-# {{ __('You are invited to Omni Leads') }}
+# {{ __('You\'re invited') }}<br><span class="serif-it">{{ __('to Omni Leads.') }}</span>
 
 {{ __(':name invited you to use Omni Leads: describe your ideal customer and get a scored list of leads, enriched with email and WhatsApp.', ['name' => $inviter]) }}
 

@@ -1,4 +1,5 @@
-/* Omni Leads: ink header, lime "signal" accent, mono labels (mirrors resources/css/app.css). */
+/* Omni Leads: the landing page look (ink background, lime "signal", serif italic accents, mono labels).
+ * Mirrors resources/css/app.css; email clients need plain hex values, so tokens are inlined. */
 
 /* Base */
 
@@ -12,10 +13,10 @@ body *:not(html):not(style):not(br):not(tr):not(code) {
 
 body {
     -webkit-text-size-adjust: none;
-    background-color: #ffffff;
-    color: #52525b;
+    background-color: #09090b;
+    color: #9a9aa4;
     height: 100%;
-    line-height: 1.4;
+    line-height: 1.5;
     margin: 0;
     padding: 0;
     width: 100% !important;
@@ -25,12 +26,12 @@ p,
 ul,
 ol,
 blockquote {
-    line-height: 1.4;
+    line-height: 1.6;
     text-align: start;
 }
 
 a {
-    color: #18181b;
+    color: #d7ff3c;
 }
 
 a img {
@@ -40,31 +41,44 @@ a img {
 /* Typography */
 
 h1 {
-    color: #09090b;
-    font-size: 22px;
-    letter-spacing: -0.01em;
-    font-weight: bold;
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    line-height: 1.02;
     margin-top: 0;
+    margin-bottom: 20px;
     text-align: start;
 }
 
+h1 em,
+.serif-it {
+    color: #c8c8ce;
+    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif !important;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+}
+
 h2 {
-    font-size: 16px;
-    font-weight: bold;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
     margin-top: 0;
     text-align: start;
 }
 
 h3 {
+    color: #ffffff;
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 600;
     margin-top: 0;
     text-align: left;
 }
 
 p {
+    color: #9a9aa4;
     font-size: 16px;
-    line-height: 1.5em;
     margin-top: 0;
     text-align: left;
 }
@@ -73,8 +87,30 @@ p.sub {
     font-size: 12px;
 }
 
+strong {
+    color: #ffffff;
+}
+
 img {
     max-width: 100%;
+}
+
+.mono,
+.eyebrow,
+.brand {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
+}
+
+.eyebrow {
+    color: #71717a;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+}
+
+.eyebrow .signal {
+    color: #d7ff3c;
 }
 
 /* Layout */
@@ -83,7 +119,7 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 100%;
-    background-color: #f4f4f1;
+    background-color: #09090b;
     margin: 0;
     padding: 0;
     width: 100%;
@@ -101,49 +137,29 @@ img {
 /* Header */
 
 .header {
-    padding: 32px 0 24px;
+    padding: 36px 0 28px;
     text-align: center;
 }
 
 .header a {
-    color: #09090b;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 17px;
+    color: #ffffff;
+    font-size: 15px;
     letter-spacing: -0.02em;
     text-decoration: none;
 }
 
 .brand-dot {
     background-color: #d7ff3c;
-    border: 1px solid #09090b;
     border-radius: 50%;
     display: inline-block;
-    height: 9px;
-    margin-right: 6px;
+    height: 8px;
+    margin-right: 8px;
     vertical-align: middle;
-    width: 9px;
+    width: 8px;
 }
 
 .brand-muted {
-    color: #71717a;
-}
-
-.eyebrow {
-    color: #71717a;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-}
-
-/* Logo */
-
-.logo {
-    height: 75px;
-    margin-top: 15px;
-    margin-bottom: 10px;
-    max-height: 75px;
-    width: 75px;
+    color: #9a9aa4;
 }
 
 /* Body */
@@ -152,9 +168,9 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 100%;
-    background-color: #f4f4f1;
-    border-bottom: 1px solid #f4f4f1;
-    border-top: 1px solid #f4f4f1;
+    background-color: #09090b;
+    border-bottom: 1px solid #09090b;
+    border-top: 1px solid #09090b;
     margin: 0;
     padding: 0;
     width: 100%;
@@ -164,13 +180,9 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 570px;
-    background-color: #ffffff;
-    border-color: #e4e4e7;
-    border-radius: 12px;
-    border-style: solid;
-    border-top: 4px solid #09090b;
-    border-width: 1px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    background-color: #0e0e11;
+    border: 1px solid #222226;
+    border-radius: 16px;
     margin: 0 auto;
     padding: 0;
     width: 570px;
@@ -183,13 +195,18 @@ img {
 /* Subcopy */
 
 .subcopy {
-    border-top: 1px solid #e4e4e7;
-    margin-top: 25px;
-    padding-top: 25px;
+    border-top: 1px solid #222226;
+    margin-top: 28px;
+    padding-top: 24px;
 }
 
 .subcopy p {
-    font-size: 14px;
+    color: #71717a;
+    font-size: 13px;
+}
+
+.subcopy a {
+    color: #c8c8ce;
 }
 
 /* Footer */
@@ -205,13 +222,15 @@ img {
 }
 
 .footer p {
-    color: #a1a1aa;
-    font-size: 12px;
+    color: #52525b;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
+    font-size: 11px;
+    letter-spacing: 0.04em;
     text-align: center;
 }
 
 .footer a {
-    color: #a1a1aa;
+    color: #71717a;
     text-decoration: underline;
 }
 
@@ -226,13 +245,14 @@ img {
 }
 
 .table th {
-    border-bottom: 1px solid #e4e4e7;
+    border-bottom: 1px solid #222226;
+    color: #ffffff;
     margin: 0;
     padding-bottom: 8px;
 }
 
 .table td {
-    color: #52525b;
+    color: #9a9aa4;
     font-size: 15px;
     line-height: 18px;
     margin: 0;
@@ -241,7 +261,7 @@ img {
 
 .content-cell {
     max-width: 100vw;
-    padding: 32px;
+    padding: 40px;
 }
 
 /* Buttons */
@@ -250,9 +270,9 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 100%;
-    margin: 30px auto;
+    margin: 32px auto;
     padding: 0;
-    text-align: center;
+    text-align: left;
     width: 100%;
     float: unset;
 }
@@ -262,6 +282,7 @@ img {
     border-radius: 999px;
     color: #09090b;
     display: inline-block;
+    font-size: 15px;
     font-weight: 600;
     overflow: hidden;
     text-decoration: none;
@@ -270,46 +291,48 @@ img {
 .button-blue,
 .button-primary {
     background-color: #d7ff3c;
-    border-bottom: 10px solid #d7ff3c;
-    border-left: 24px solid #d7ff3c;
-    border-right: 24px solid #d7ff3c;
-    border-top: 10px solid #d7ff3c;
+    border-bottom: 12px solid #d7ff3c;
+    border-left: 26px solid #d7ff3c;
+    border-right: 26px solid #d7ff3c;
+    border-top: 12px solid #d7ff3c;
     color: #09090b;
 }
 
 .button-green,
 .button-success {
-    background-color: #16a34a;
-    border-bottom: 8px solid #16a34a;
-    border-left: 18px solid #16a34a;
-    border-right: 18px solid #16a34a;
-    border-top: 8px solid #16a34a;
+    background-color: #d7ff3c;
+    border-bottom: 12px solid #d7ff3c;
+    border-left: 26px solid #d7ff3c;
+    border-right: 26px solid #d7ff3c;
+    border-top: 12px solid #d7ff3c;
+    color: #09090b;
 }
 
 .button-red,
 .button-error {
-    background-color: #dc2626;
-    border-bottom: 8px solid #dc2626;
-    border-left: 18px solid #dc2626;
-    border-right: 18px solid #dc2626;
-    border-top: 8px solid #dc2626;
+    background-color: #f43f5e;
+    border-bottom: 12px solid #f43f5e;
+    border-left: 26px solid #f43f5e;
+    border-right: 26px solid #f43f5e;
+    border-top: 12px solid #f43f5e;
+    color: #ffffff;
 }
 
 /* Panels */
 
 .panel {
-    border-left: #d7ff3c solid 4px;
+    border-left: #d7ff3c solid 3px;
     margin: 21px 0;
 }
 
 .panel-content {
-    background-color: #fafafa;
-    color: #52525b;
+    background-color: #141418;
+    color: #9a9aa4;
     padding: 16px;
 }
 
 .panel-content p {
-    color: #52525b;
+    color: #9a9aa4;
 }
 
 .panel-item {
