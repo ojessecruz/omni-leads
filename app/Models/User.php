@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
@@ -23,6 +24,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property int $id
  * @property string $name
  * @property string $email
+ * @property string|null $avatar_path
  * @property string|null $locale
  * @property Theme $theme
  * @property Carbon|null $email_verified_at
@@ -71,6 +73,23 @@ class User extends Authenticatable implements PasskeyUser
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
             : $initials;
+    }
+
+    /**
+     * Public URL of the profile photo on the default disk (R2 in production), or null to show initials.
+     * Without a public domain for the bucket, a signed URL valid for a day is used instead.
+     */
+    public function avatarUrl(): ?string
+    {
+        if ($this->avatar_path === null) {
+            return null;
+        }
+
+        $config = config('filesystems.disks.'.config('filesystems.default'));
+
+        return ($config['driver'] ?? null) === 's3' && blank($config['url'] ?? null)
+            ? Storage::temporaryUrl($this->avatar_path, now()->addDay())
+            : Storage::url($this->avatar_path);
     }
 
     /** Admins come from ADMIN_EMAILS (config app.admins), not from the database. */

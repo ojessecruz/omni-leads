@@ -50,7 +50,7 @@
 
                     <flux:dropdown position="bottom" align="end">
                         <button type="button" class="flex items-center gap-2 rounded-full border border-white/10 py-1 pl-1 pr-3 text-sm text-zinc-300 transition hover:border-white/30 hover:text-white" data-test="sidebar-menu-button">
-                            <span class="font-mono flex size-7 items-center justify-center rounded-full bg-signal text-2xs font-semibold text-ink">{{ auth()->user()->initials() }}</span>
+                            <x-ui.avatar :user="auth()->user()" />
                             <span class="hidden max-w-32 truncate sm:block">{{ Str::before(auth()->user()->name, ' ') }}</span>
                             <flux:icon.chevron-down class="size-3.5 text-zinc-500" />
                         </button>
