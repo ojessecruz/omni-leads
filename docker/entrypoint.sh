@@ -1,14 +1,16 @@
 #!/bin/sh
 # Boots the container: caches config from the runtime env, runs migrations and
-# picks which processes supervisord starts (CONTAINER_ROLE = all | web | worker).
+# picks which processes supervisord starts (CONTAINER_ROLE = all | web | worker | reverb).
+# "reverb" is the WebSocket server alone, deployed as its own service with this same image.
 set -e
 
 cd /var/www/html
 
 case "${CONTAINER_ROLE:-all}" in
-    web)    export RUN_WEB=true  RUN_WORKER=false ;;
-    worker) export RUN_WEB=false RUN_WORKER=true ;;
-    *)      export RUN_WEB=true  RUN_WORKER=true ;;
+    web)    export RUN_WEB=true  RUN_WORKER=false RUN_REVERB=false ;;
+    worker) export RUN_WEB=false RUN_WORKER=true  RUN_REVERB=false ;;
+    reverb) export RUN_WEB=false RUN_WORKER=false RUN_REVERB=true ;;
+    *)      export RUN_WEB=true  RUN_WORKER=true  RUN_REVERB=false ;;
 esac
 
 if [ -z "$APP_KEY" ]; then

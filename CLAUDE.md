@@ -10,6 +10,7 @@ Laravel 13 · Livewire 4 (class components) + Flux · Tailwind 4 · PostgreSQL 1
 ./vendor/bin/sail up -d
 ./vendor/bin/sail npm run dev       # Vite em :5190
 ./vendor/bin/sail artisan horizon   # filas: default, discovery, enrichment, scoring
+./vendor/bin/sail artisan reverb:start --host=0.0.0.0 --port=8080   # WebSocket, publicado em :8090
 ```
 - App: http://localhost:9030 · Horizon: /horizon · Mailpit: http://localhost:8040
 - Postgres host: 54320 · Redis host: 6390 · SMTP Mailpit: 1040
@@ -59,6 +60,7 @@ Sempre rode `npm`/`composer`/`artisan` via `sail` — `node_modules` é do Linux
 - `Domains/Leads/LeadMerger` + `MergeDuplicateLeadsJob` (único por projeto, roda após cada busca e às 03:00 via `leads:merge-duplicates`). Mantém o lead mais antigo, status mais avançado (contacted > discarded > qualified > new), move fontes e une ICPs.
 - Re-execução: `icps.rerun_every_days/next_run_at`; `icps:rerun-due` de hora em hora (`routes/console.php`). Precisa do scheduler rodando (`sail artisan schedule:work`).
 - Eventos (`app/Events`) → `app/Listeners/DispatchWebhooks` (auto-discovery, não registrar à mão) → `DeliverWebhookJob` (HMAC em `X-OmniLeads-Signature`; 5xx/conexão retentam 5x, 4xx é definitivo; cada entrega conta 1 falha, desativa após 20). Webhooks e template de WhatsApp em `/projects/{id}/settings`.
+- Inbox de WhatsApp (`Domains/WhatsApp`): webhook da Evolution em `whatsapp/{integration}/webhook/{secret}` (registrado ao parear e de hora em hora por `whatsapp:register-webhooks`); só números que são leads viram `whatsapp_conversations` (uma por número, ligada aos leads). `WhatsAppMessageStored` é transmitido no canal privado `App.Models.User.{id}` via Reverb. A config do Echo vai em `window.omniEcho` (layout do app, lida em runtime): `REVERB_HOST/PORT/SCHEME` = app → Reverb, `REVERB_PUBLIC_*` = navegador → Reverb. Em produção o Reverb é outro serviço com a mesma imagem e `CONTAINER_ROLE=reverb` (porta 8080).
 - Outbound: `SendWhatsAppJob` → `EvolutionClient::sendText`; `tries = 1` (POST sem idempotência), grava `lead_sources.whatsapp_outbound` (`external_id` = delivery id, message id no payload) **antes** de enviar e pula se já houver resposta; marca contatado.
 - Filas: `REDIS_QUEUE_RETRY_AFTER` (1830) precisa ser maior que o maior `$timeout` de job (`SourceSearchJob` 1800), senão o Horizon re-reserva jobs em andamento. `Model::preventLazyLoading` está ligado fora de produção.
 

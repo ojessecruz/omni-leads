@@ -10,6 +10,7 @@ use App\Enums\LeadStatus;
 use App\Enums\WhatsAppMessageStatus;
 use App\Enums\WhatsAppMessageType;
 use App\Events\LeadStatusChanged;
+use App\Events\WhatsAppMessageStored;
 use App\Jobs\DownloadWhatsAppMediaJob;
 use App\Jobs\ProcessWhatsAppWebhookJob;
 use App\Jobs\SendWhatsAppJob;
@@ -243,4 +244,24 @@ test('não registra webhook com URL local nem para telefone não pareado', funct
     expect(app(RegisterWhatsAppWebhook::class)($paired))->toBeFalse()
         ->and(app(RegisterWhatsAppWebhook::class)($unpaired))->toBeFalse();
     Http::assertNothingSent();
+});
+
+test('mensagem nova é transmitida no canal privado do dono com o total de não lidas', function () {
+    Event::fake([WhatsAppMessageStored::class]);
+    $user = User::factory()->create();
+    pairedWhatsApp($user);
+    leadWithPhone($user, '5511987654321');
+    WhatsAppConversation::factory()->for($user)->create(['unread_count' => 2]);
+
+    deliverWebhook(upsertPayload('5511987654321@s.whatsapp.net'));
+
+    Event::assertDispatched(WhatsAppMessageStored::class, function (WhatsAppMessageStored $event) use ($user) {
+        $payload = $event->broadcastWith();
+
+        return $event->broadcastOn()[0]->name === 'private-App.Models.User.'.$user->id
+            && $event->broadcastAs() === 'whatsapp.message'
+            && $payload['unread_total'] === 3
+            && $payload['name'] === 'Ana'
+            && $payload['preview'] === 'Oi, tenho interesse';
+    });
 });
