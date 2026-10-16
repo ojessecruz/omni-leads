@@ -38,37 +38,17 @@
         </div>
     </div>
 
-    <div class="mt-3 flex flex-wrap items-center gap-2" data-reveal>
+    <div class="relative z-20 mt-3 flex flex-wrap items-center gap-2" data-reveal>
         <flux:input wire:model.live.debounce.400ms="search" :placeholder="__('Search name, domain, email, city…')" icon="magnifying-glass" class="min-w-56 flex-1" clearable />
-        <flux:select wire:model.live="icp" :placeholder="__('All ICPs')" class="w-full sm:w-48">
-            @foreach ($icps as $item)
-                <flux:select.option value="{{ $item->id }}">{{ $item->name }}</flux:select.option>
-            @endforeach
-        </flux:select>
-        <flux:select wire:model.live="city" :placeholder="__('All cities')" class="w-full sm:w-44">
-            @foreach ($cities as $c)
-                <flux:select.option value="{{ $c }}">{{ $c }}</flux:select.option>
-            @endforeach
-        </flux:select>
+        <x-ui.combobox model="icp" :options="$icps" :all-label="__('All ICPs')" icon="funnel" class="w-full sm:w-52" />
+        <x-ui.combobox model="city" :options="$cities" :all-label="__('All cities')" icon="map-pin" class="w-full sm:w-52" />
         @if ($countries->count() > 1)
-            <flux:select wire:model.live="country" :placeholder="__('All countries')" class="w-full sm:w-40">
-                @foreach ($countries as $c)
-                    <flux:select.option value="{{ $c }}">{{ \App\Support\Countries::name($c) }}</flux:select.option>
-                @endforeach
-            </flux:select>
+            <x-ui.combobox model="country" :options="$countries->mapWithKeys(fn ($c) => [$c => ['label' => \App\Support\Countries::name($c)]])" :all-label="__('All countries')" icon="globe-alt" class="w-full sm:w-44" />
         @endif
-        @if ($drivers->count() > 1)
-            <flux:select wire:model.live="driver" :placeholder="__('Any source')" class="w-full sm:w-40">
-                @foreach ($drivers as $d)
-                    <flux:select.option value="{{ $d }}">{{ $d }}</flux:select.option>
-                @endforeach
-            </flux:select>
+        @if ($drivers->count() > 1 || $driver !== '')
+            <x-ui.combobox model="driver" :options="$drivers" :all-label="__('Any source')" icon="circle-stack" class="w-full sm:w-44" />
         @endif
-        <flux:select wire:model.live="sort" class="w-full sm:w-44" :aria-label="__('Sort')">
-            <flux:select.option value="score">{{ __('Highest score') }}</flux:select.option>
-            <flux:select.option value="recent">{{ __('Newest') }}</flux:select.option>
-            <flux:select.option value="name">{{ __('Name (A–Z)') }}</flux:select.option>
-        </flux:select>
+        <x-ui.combobox model="sort" :options="['score' => ['label' => __('Highest score')], 'recent' => ['label' => __('Newest')], 'name' => ['label' => __('Name (A–Z)')]]" icon="arrows-up-down" class="w-full sm:w-44" />
         @if ($filtered)
             <flux:button variant="ghost" size="sm" icon="x-mark" wire:click="clearFilters">{{ __('Clear filters') }}</flux:button>
         @endif
