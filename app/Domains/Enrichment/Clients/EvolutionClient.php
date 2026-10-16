@@ -174,6 +174,51 @@ class EvolutionClient
         return is_array($body) ? $body : [];
     }
 
+    /**
+     * Points the instance's webhook at the app. v2.2+ takes { webhook: {...} }; older v2 servers
+     * take the same fields flat, so a 400 on the first shape retries with the second.
+     *
+     * @param  list<string>  $events  e.g. MESSAGES_UPSERT
+     */
+    public function setWebhook(string $url, array $events): void
+    {
+        $this->assertConfigured();
+
+        $endpoint = $this->config['base_url'].'/webhook/set/'.$this->config['instance'];
+        $response = $this->http()->post($endpoint, ['webhook' => ['enabled' => true, 'url' => $url, 'byEvents' => false, 'base64' => false, 'events' => $events]]);
+
+        if ($response->status() === 400) {
+            $response = $this->http()->post($endpoint, ['enabled' => true, 'url' => $url, 'webhookByEvents' => false, 'webhookBase64' => false, 'events' => $events]);
+        }
+
+        $this->ensureOk($response);
+    }
+
+    /**
+     * Media of a received message. POST {base}/chat/getBase64FromMediaMessage/{instance}
+     *
+     * @return array{base64: string, mimetype: ?string, fileName: ?string}
+     */
+    public function mediaBase64(string $messageId): array
+    {
+        $this->assertConfigured();
+
+        $response = $this->ensureOk($this->http()->timeout(45)->post(
+            $this->config['base_url'].'/chat/getBase64FromMediaMessage/'.$this->config['instance'],
+            ['message' => ['key' => ['id' => $messageId]], 'convertToMp4' => false],
+        ));
+
+        $base64 = $response->json('base64');
+
+        if (! is_string($base64) || $base64 === '') {
+            throw new RuntimeException('Evolution returned no media for message '.$messageId.'.');
+        }
+
+        $string = fn (mixed $v): ?string => is_string($v) && $v !== '' ? $v : null;
+
+        return ['base64' => $base64, 'mimetype' => $string($response->json('mimetype')), 'fileName' => $string($response->json('fileName'))];
+    }
+
     public function isConfigured(): bool
     {
         return filled($this->config['base_url'] ?? null) && filled($this->config['instance'] ?? null) && filled($this->config['key'] ?? null);

@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Domains\Enrichment\Clients\EvolutionClient;
+use App\Domains\WhatsApp\WebhookParser;
+use App\Domains\WhatsApp\WhatsAppInbox;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
@@ -14,7 +16,8 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * First outbound message through Evolution. Marks the lead as contacted and records it in lead_sources.
+ * Outbound message through Evolution. Marks the lead as contacted (unless it already replied),
+ * records it in lead_sources and adds it to the lead's WhatsApp conversation.
  *
  * Sending is a non-idempotent POST on Evolution's side, so the job does not retry by itself:
  * the lead_sources row (external_id = delivery id) is written before sending and, if it already
@@ -32,7 +35,7 @@ class SendWhatsAppJob implements ShouldQueue
         $this->onQueue('default');
     }
 
-    public function handle(EvolutionClient $evolution): void
+    public function handle(EvolutionClient $evolution, WebhookParser $parser, WhatsAppInbox $inbox): void
     {
         $lead = Lead::find($this->leadId);
 
@@ -46,7 +49,8 @@ class SendWhatsAppJob implements ShouldQueue
             return;
         }
 
-        $response = $evolution->withCredentials($lead->project->user->credentialsFor(IntegrationProvider::Evolution))->sendText($lead->phone, $this->text);
+        $user = $lead->project->user;
+        $response = $evolution->withCredentials($user->credentialsFor(IntegrationProvider::Evolution))->sendText($lead->phone, $this->text);
 
         $source->update([
             'raw_payload' => [
@@ -57,9 +61,18 @@ class SendWhatsAppJob implements ShouldQueue
             ],
         ]);
 
+        // The message is out: a failure to log it in the inbox must not fail (and never re-send) the job.
+        try {
+            if ($sent = $parser->sent($response, $this->text)) {
+                $inbox->record($user, $sent, sentVia: 'omni');
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
         $from = $lead->status;
 
-        if ($from !== LeadStatus::Contacted) {
+        if (! in_array($from, [LeadStatus::Contacted, LeadStatus::Replied], true)) {
             $lead->update(['status' => LeadStatus::Contacted]);
             LeadStatusChanged::dispatch($lead, $from);
         }

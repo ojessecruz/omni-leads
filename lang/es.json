@@ -632,5 +632,15 @@
     "See leads": "Ver leads",
     "Send qualified leads to a Saleshandy sequence or message them on WhatsApp.": "Envía los leads calificados a una secuencia de Saleshandy o escríbeles por WhatsApp.",
     "Tell who your ideal customer is and where they are. The wizard starts the search at the end.": "Indica quién es tu cliente ideal y dónde está. El asistente inicia la búsqueda al final.",
-    "Usage above the free quota is billed by Google to your Cloud account. You can set a budget alert in Billing to be safe.": "El uso por encima de la cuota gratuita lo cobra Google en tu cuenta de Cloud. Por seguridad, puedes crear una alerta de presupuesto en Facturación."
+    "Usage above the free quota is billed by Google to your Cloud account. You can set a budget alert in Billing to be safe.": "El uso por encima de la cuota gratuita lo cobra Google en tu cuenta de Cloud. Por seguridad, puedes crear una alerta de presupuesto en Facturación.",
+    "Text": "Texto",
+    "Image": "Imagen",
+    "Audio": "Audio",
+    "Video": "Video",
+    "Document": "Documento",
+    "Sticker": "Sticker",
+    "Unsupported message": "Mensaje no compatible",
+    "Sending": "Enviando",
+    "Delivered": "Entregado",
+    "Read": "Leído"
 }

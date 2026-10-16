@@ -13,6 +13,7 @@ use App\Listeners\DispatchWebhooks;
 use App\Models\OutboundConnection;
 use App\Models\Project;
 use App\Models\Webhook;
+use App\Support\LocalUrl;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
@@ -275,7 +276,7 @@ class Settings extends Component
     {
         $url = route('outbound.webhook', [$connection, $connection->webhook_secret]);
 
-        if (self::isLocalUrl($url)) {
+        if (LocalUrl::is($url)) {
             return false;
         }
 
@@ -291,15 +292,6 @@ class Settings extends Component
         }
     }
 
-    protected static function isLocalUrl(string $url): bool
-    {
-        $host = (string) parse_url($url, PHP_URL_HOST);
-
-        return in_array($host, ['localhost', '127.0.0.1', '[::1]'], true)
-            || str_ends_with($host, '.localhost')
-            || str_ends_with($host, '.test');
-    }
-
     public function render(OutboundConnectorResolver $resolver): View
     {
         $outbound = $this->project->outboundConnection;
@@ -310,7 +302,7 @@ class Settings extends Component
             'connectorKeys' => array_filter(array_keys($resolver->options()), fn (string $c) => $this->project->user->hasIntegration(IntegrationProvider::from($c))),
             'outboundLabel' => $outbound ? $resolver->label($outbound->connector) : null,
             'messageTags' => $outbound ? $resolver->resolve($outbound->connector, [])->messageTags() : null,
-            'webhookIsLocal' => $outbound ? self::isLocalUrl(route('outbound.webhook', [$outbound, $outbound->webhook_secret])) : false,
+            'webhookIsLocal' => $outbound ? LocalUrl::is(route('outbound.webhook', [$outbound, $outbound->webhook_secret])) : false,
             'webhooks' => $this->project->webhooks()->latest()->get(),
             'events' => Webhook::labels(),
             'placeholders' => WhatsAppTemplate::PLACEHOLDERS,

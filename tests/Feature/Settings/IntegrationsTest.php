@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Enrichment\Clients\HunterClient;
 use App\Domains\LeadSources\Drivers\GooglePlaces\GooglePlacesDriver;
 use App\Enums\IntegrationProvider;
@@ -172,7 +171,7 @@ test('servidor do Omni Leads: sem URL nem chave, pareia no servidor da plataform
         ->and($credentials['mode'])->toBe('hosted')
         ->and($user->fresh()->hasIntegration(IntegrationProvider::Evolution))->toBeTrue();
 
-    (new SendWhatsAppJob($lead->id, 'Oi', 'd-1'))->handle(app(EvolutionClient::class));
+    app()->call([new SendWhatsAppJob($lead->id, 'Oi', 'd-1'), 'handle']);
 
     Http::assertSent(fn (Request $r) => $r->url() === 'https://omni-evo.test/instance/create' && $r->hasHeader('apikey', 'omni-global'));
     Http::assertSent(fn (Request $r) => $r->url() === "https://omni-evo.test/message/sendText/{$credentials['instance']}");

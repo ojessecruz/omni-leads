@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Outbound\WhatsAppTemplate;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
@@ -48,7 +47,7 @@ test('SendWhatsAppJob envia pelo Evolution, registra fonte, marca contatado e di
     Webhook::factory()->for($project)->create(['events' => ['lead.contacted']]);
     $lead = withEvolution(Lead::factory()->for(Icp::factory()->for($project))->create(['phone' => '5511999990000', 'status' => LeadStatus::Qualified]));
 
-    (new SendWhatsAppJob($lead->id, 'Olá!', 'd-1'))->handle(app(EvolutionClient::class));
+    app()->call([new SendWhatsAppJob($lead->id, 'Olá!', 'd-1'), 'handle']);
 
     Http::assertSent(fn ($req) => $req->hasHeader('apikey', 'ek') && $req['number'] === '5511999990000' && $req['text'] === 'Olá!');
 
@@ -67,8 +66,8 @@ test('SendWhatsAppJob não reenvia a mesma entrega', function () {
     $lead = withEvolution(Lead::factory()->create(['phone' => '5511999990000']));
 
     $job = new SendWhatsAppJob($lead->id, 'Olá!', 'd-1');
-    $job->handle(app(EvolutionClient::class));
-    $job->handle(app(EvolutionClient::class));
+    app()->call([$job, 'handle']);
+    app()->call([$job, 'handle']);
 
     Http::assertSentCount(1);
     expect($job->tries)->toBe(1)
@@ -81,7 +80,7 @@ test('SendWhatsAppJob registra o erro quando o envio falha e não marca contatad
     $other = withEvolution(Lead::factory()->create(['phone' => '5511999990001']));
     $failing = new SendWhatsAppJob($other->id, 'Oi', 'd-2');
 
-    expect(fn () => $failing->handle(app(EvolutionClient::class)))->toThrow(Exception::class);
+    expect(fn () => app()->call([$failing, 'handle']))->toThrow(Exception::class);
     $failing->failed(new RuntimeException('boom'));
 
     $source = $other->sources()->where('driver', 'whatsapp_outbound')->sole();
