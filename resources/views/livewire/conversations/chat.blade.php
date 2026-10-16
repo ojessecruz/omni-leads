@@ -1,6 +1,8 @@
 <div class="flex h-full min-h-0 flex-col"
      x-data="{ id: {{ $conversation->id }}, init() { window.omniActiveConversation = this.id; this.$nextTick(() => this.scroll()); }, destroy() { if (window.omniActiveConversation === this.id) window.omniActiveConversation = null; }, scroll() { this.$refs.log.scrollTop = this.$refs.log.scrollHeight; } }"
-     x-on:chat-scroll.window="$nextTick(() => scroll())">
+     x-on:chat-scroll.window="$nextTick(() => scroll())"
+     x-on:focus.window="$wire.markSeen()"
+     x-on:visibilitychange.document="document.hidden || $wire.markSeen()">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/6 px-5 py-3">
         <x-whatsapp.avatar :conversation="$conversation" class="size-9" />
         <div class="min-w-0 flex-1">
