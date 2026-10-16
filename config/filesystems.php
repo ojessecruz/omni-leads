@@ -70,6 +70,8 @@ return [
             'bucket' => env('R2_BUCKET'),
             'url' => env('R2_URL'),
             'endpoint' => env('R2_ENDPOINT'),
+            // The bucket is shared with other apps: everything lives under this folder.
+            'root' => env('R2_ROOT', 'omnileads'),
             'use_path_style_endpoint' => true,
             'throw' => true,
             'report' => false,
