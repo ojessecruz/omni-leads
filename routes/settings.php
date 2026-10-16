@@ -1,7 +1,9 @@
 <?php
 
+use App\Livewire\Auth\AcceptInvitation;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Integrations;
+use App\Livewire\Settings\Invitations;
 use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\Security;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +17,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('settings/appearance', Appearance::class)->name('appearance.edit');
     Route::livewire('settings/integrations', Integrations::class)->name('integrations.edit');
+    Route::livewire('settings/invitations', Invitations::class)->middleware('can:invite-users')->name('invitations.index');
 
     Route::livewire('settings/security', Security::class)
         ->middleware([
@@ -22,6 +25,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ])
         ->name('security.edit');
 });
+
+Route::livewire('invitations/{token}', AcceptInvitation::class)
+    ->middleware(['guest', 'throttle:30,1'])
+    ->name('invitations.accept');
 
 Route::get('.well-known/passkey-endpoints', function () {
     return response()->json([
