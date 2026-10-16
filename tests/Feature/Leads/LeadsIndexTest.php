@@ -67,6 +67,45 @@ test('ação em massa só aceita contacted ou discarded', function () {
     expect($lead->fresh()->status)->toBe(LeadStatus::New);
 });
 
+test('abas de status contam respeitando os outros filtros, e cidade e ordenação filtram a lista', function () {
+    $user = User::factory()->create();
+    $icp = Icp::factory()->for(Project::factory()->for($user))->create();
+    Lead::factory()->for($icp)->create(['company_name' => 'Zeta JF', 'city' => 'Juiz de Fora', 'score' => 90, 'status' => LeadStatus::Qualified, 'created_at' => now()->subDays(3)]);
+    Lead::factory()->for($icp)->create(['company_name' => 'Alfa JF', 'city' => 'Juiz de Fora', 'score' => 20, 'created_at' => now()]);
+    Lead::factory()->for($icp)->create(['company_name' => 'Ubá Spa', 'city' => 'Ubá', 'score' => 70, 'status' => LeadStatus::Qualified]);
+
+    $page = Livewire::actingAs($user)->test(Index::class)
+        ->set('city', 'Juiz de Fora')
+        ->assertViewHas('statusCounts', fn ($counts) => $counts->map(fn ($c) => (int) $c)->sortKeys()->all() === ['new' => 1, 'qualified' => 1])
+        ->assertSeeInOrder(['Zeta JF', 'Alfa JF'])
+        ->assertDontSee('Ubá Spa');
+
+    $page->set('sort', 'recent')->assertSeeInOrder(['Alfa JF', 'Zeta JF'])
+        ->set('sort', 'name')->assertSeeInOrder(['Alfa JF', 'Zeta JF'])
+        ->set('sort', 'bogus')->assertSet('sort', 'score')
+        ->set('status', 'qualified')->assertSee('Zeta JF')->assertDontSee('Alfa JF')
+        // The counters ignore the status tab itself.
+        ->assertViewHas('statusCounts', fn ($counts) => (int) $counts['new'] === 1);
+});
+
+test('ação da linha muda o status de um lead só, sem mexer na seleção', function () {
+    $user = User::factory()->create();
+    $icp = Icp::factory()->for(Project::factory()->for($user))->create();
+    [$a, $b] = Lead::factory()->for($icp)->count(2)->create();
+    $other = Lead::factory()->create();
+
+    Livewire::actingAs($user)->test(Index::class)
+        ->set('selected', [$b->id])
+        ->call('markOne', $a->id, 'contacted')
+        ->assertSet('selected', [$b->id])
+        ->call('markOne', $other->id, 'discarded')
+        ->call('markOne', $a->id, 'qualified')->assertHasErrors('status');
+
+    expect($a->fresh()->status)->toBe(LeadStatus::Contacted)
+        ->and($b->fresh()->status)->toBe(LeadStatus::New)
+        ->and($other->fresh()->status)->toBe(LeadStatus::New);
+});
+
 test('detalhe do lead valida o status antes de alterar', function () {
     $lead = Lead::factory()->create();
 

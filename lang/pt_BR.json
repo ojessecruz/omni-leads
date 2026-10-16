@@ -671,5 +671,15 @@
     "Register webhook": "Registrar webhook",
     "Set up": "Configurar",
     "Phone not connected": "Celular não conectado",
-    "Inbox not receiving": "Conversas sem receber"
+    "Inbox not receiving": "Conversas sem receber",
+    "All": "Todos",
+    "All cities": "Todas as cidades",
+    "Sort": "Ordenar",
+    "Highest score": "Maior score",
+    "Newest": "Mais recentes",
+    "Name (A–Z)": "Nome (A–Z)",
+    "Added": "Adicionado",
+    "Actions": "Ações",
+    "Open conversation": "Abrir conversa",
+    "Clear selection": "Limpar seleção"
 }
