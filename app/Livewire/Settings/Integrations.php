@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Actions\WhatsApp\RegisterWhatsAppWebhook;
 use App\Domains\Enrichment\Clients\EvolutionClient;
 use App\Domains\Integrations\Exceptions\IntegrationException;
 use App\Domains\Integrations\IntegrationVerifier;
@@ -164,6 +165,7 @@ class Integrations extends Component
         $this->pairingPolls = 0;
 
         if ($this->whatsappQr === null && $integration->provider->isUsable($integration->credentials)) {
+            $this->registerWebhook($integration);
             Flux::toast(variant: 'success', text: __('WhatsApp connected.'));
         }
     }
@@ -182,6 +184,7 @@ class Integrations extends Component
         try {
             if ($pairing->check($integration)) {
                 $this->whatsappQr = null;
+                $this->registerWebhook($integration);
                 Flux::toast(variant: 'success', text: __('WhatsApp connected.'));
 
                 return;
@@ -193,6 +196,16 @@ class Integrations extends Component
         } catch (RuntimeException $e) {
             $this->whatsappQr = null;
             Flux::toast(variant: 'danger', text: __('Could not connect: :reason', ['reason' => $e->getMessage()]));
+        }
+    }
+
+    /** Best effort: whatsapp:register-webhooks retries every hour. */
+    protected function registerWebhook(Integration $integration): void
+    {
+        try {
+            app(RegisterWhatsAppWebhook::class)($integration);
+        } catch (RuntimeException $e) {
+            report($e);
         }
     }
 
