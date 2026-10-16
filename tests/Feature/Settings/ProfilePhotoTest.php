@@ -82,3 +82,11 @@ test('se o storage falhar, mostra erro em vez de quebrar a página', function ()
 
     expect($user->fresh()->avatar_path)->toBeNull();
 });
+
+test('no R2 tudo fica dentro da pasta omnileads do bucket', function () {
+    $disk = Storage::build([...config('filesystems.disks.r2'), 'key' => 'x', 'secret' => 'x', 'bucket' => 'compartilhado', 'endpoint' => 'https://conta.r2.cloudflarestorage.com']);
+
+    expect(config('filesystems.disks.r2.root'))->toBe('omnileads')
+        ->and($disk->url('avatars/1/foto.jpg'))->toBe('https://media.omni.test/omnileads/avatars/1/foto.jpg')
+        ->and($disk->temporaryUrl('avatars/1/foto.jpg', now()->addHour()))->toContain('/compartilhado/omnileads/avatars/1/foto.jpg');
+});
