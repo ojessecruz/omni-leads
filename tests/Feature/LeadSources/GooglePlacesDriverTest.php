@@ -98,3 +98,47 @@ test('verify usa o SKU gratuito só de IDs e traduz chave recusada', function ()
 
     Http::assertSent(fn ($req) => $req->hasHeader('X-Goog-FieldMask', 'places.id') && $req['pageSize'] === 1);
 });
+
+test('região conhecida pelo Google vira locationRestriction e a busca usa só a palavra-chave', function () {
+    Http::fake(function ($req) {
+        if ($req->header('X-Goog-FieldMask')[0] === 'places.types,places.viewport') {
+            return Http::response(['places' => [[
+                'types' => ['locality', 'political'],
+                'viewport' => ['low' => ['latitude' => -21.6, 'longitude' => -42.75], 'high' => ['latitude' => -21.45, 'longitude' => -42.55]],
+            ]]]);
+        }
+
+        return Http::response(['places' => [placePayload('leopoldina-mg')]]);
+    });
+
+    $query = ['text' => 'barbearia in Leopoldina, Brazil', 'keyword' => 'barbearia', 'place' => 'Leopoldina, Brazil', 'region_code' => 'br'];
+    $driver = places()->driver('google_places');
+    $leads = iterator_to_array($driver->search([$query, $query]), false);
+
+    expect($leads)->toHaveCount(2);
+
+    // Looked up once: the second query reuses the cached bounds.
+    Http::assertSentCount(3);
+    Http::assertSent(fn ($req) => $req['textQuery'] === 'Leopoldina, Brazil' && $req['pageSize'] === 1 && $req['regionCode'] === 'br');
+    Http::assertSent(fn ($req) => $req['textQuery'] === 'barbearia'
+        && $req['locationRestriction']['rectangle'] === ['low' => ['latitude' => -21.6, 'longitude' => -42.75], 'high' => ['latitude' => -21.45, 'longitude' => -42.55]]);
+    Http::assertNotSent(fn ($req) => $req['textQuery'] === 'barbearia in Leopoldina, Brazil');
+});
+
+test('região que não é um lugar (ex.: um estabelecimento) mantém a busca em texto', function () {
+    Http::fake(function ($req) {
+        if ($req->header('X-Goog-FieldMask')[0] === 'places.types,places.viewport') {
+            return Http::response(['places' => [[
+                'types' => ['establishment', 'point_of_interest'],
+                'viewport' => ['low' => ['latitude' => -23.6, 'longitude' => -46.7], 'high' => ['latitude' => -23.5, 'longitude' => -46.6]],
+            ]]]);
+        }
+
+        return Http::response(['places' => [placePayload('p1')]]);
+    });
+
+    $driver = places()->driver('google_places');
+    iterator_to_array($driver->search([['text' => 'spa in Zona Sul, Brazil', 'keyword' => 'spa', 'place' => 'Zona Sul, Brazil', 'region_code' => 'br']]), false);
+
+    Http::assertSent(fn ($req) => $req['textQuery'] === 'spa in Zona Sul, Brazil' && ! isset($req['locationRestriction']));
+});
