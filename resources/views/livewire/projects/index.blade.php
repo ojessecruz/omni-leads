@@ -10,7 +10,7 @@
     </x-ui.page-header>
 
     @if ($projects->isEmpty())
-        <x-ui.empty code="step 01 / 04" :title="__('No projects yet')" data-reveal>
+        <x-ui.empty code="step 02 / 05" :title="__('No projects yet')" data-reveal>
             {{ __('Create your first project and define the ICP in the wizard. Lead discovery starts from there.') }}
             <x-slot name="actions">
                 <flux:modal.trigger name="new-project">

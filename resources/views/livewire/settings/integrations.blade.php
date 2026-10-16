@@ -29,6 +29,10 @@
                                     </div>
                                 </div>
 
+                                @if ($provider === \App\Enums\IntegrationProvider::GooglePlaces)
+                                    @include('livewire.settings.partials.google-places-guide', ['connected' => (bool) $integration])
+                                @endif
+
                                 @if ($provider === \App\Enums\IntegrationProvider::Evolution && $hostedWhatsApp)
                                     <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="{{ __('WhatsApp server') }}">
                                         @foreach (['hosted' => [__('Omni Leads server'), __('Just scan the QR code. Nothing to install.')], 'own' => [__('My own server'), __('Your Evolution API URL and global key.')]] as $mode => [$title, $hint])

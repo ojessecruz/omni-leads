@@ -23,6 +23,8 @@
         <flux:button :href="route('projects.index')" wire:navigate variant="primary" icon="plus">{{ __('New project') }}</flux:button>
     </x-ui.page-header>
 
+    <livewire:dashboard.onboarding />
+
     <div class="cell-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" data-reveal>
         <x-ui.stat :label="__('Projects')" :value="$fmt($projects)" :href="route('projects.index')" hint="projects" />
         <x-ui.stat :label="__('ICPs')" :value="$fmt($icps)" :href="route('projects.index')" hint="icps.criteria → jsonb" />
@@ -31,12 +33,15 @@
     </div>
 
     @if ($projects === 0)
-        <x-ui.empty class="mt-6" code="step 01 / 04" :title="__('Start by creating a project')" data-reveal>
-            {{ __('Describe your product, define the ICP in the wizard and run the first search.') }}
-            <x-slot name="actions">
-                <flux:button :href="route('projects.index')" wire:navigate variant="primary">{{ __('Go to projects') }}</flux:button>
-            </x-slot>
-        </x-ui.empty>
+        {{-- The first steps panel covers this until it is dismissed. --}}
+        @if ($user->onboarding_dismissed_at)
+            <x-ui.empty class="mt-6" :title="__('Start by creating a project')" data-reveal>
+                {{ __('Describe your product, define the ICP in the wizard and run the first search.') }}
+                <x-slot name="actions">
+                    <flux:button :href="route('projects.index')" wire:navigate variant="primary">{{ __('Go to projects') }}</flux:button>
+                </x-slot>
+            </x-ui.empty>
+        @endif
     @else
         <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12" data-reveal>
             <x-ui.panel class="lg:col-span-8" :eyebrow="__('Latest')" :title="__('Recently discovered')" :padding="false">

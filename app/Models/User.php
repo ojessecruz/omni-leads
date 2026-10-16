@@ -27,6 +27,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $avatar_path
  * @property string|null $locale
  * @property Theme $theme
+ * @property Carbon|null $onboarding_dismissed_at
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -60,6 +61,7 @@ class User extends Authenticatable implements PasskeyUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'theme' => Theme::class,
+            'onboarding_dismissed_at' => 'datetime',
         ];
     }
 
