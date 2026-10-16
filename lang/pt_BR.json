@@ -603,5 +603,6 @@
     "Change photo": "Trocar foto",
     "Upload photo": "Enviar foto",
     "JPG, PNG or WebP, up to 2 MB.": "JPG, PNG ou WebP, até 2 MB.",
-    "Could not save the photo. Try again later.": "Não foi possível salvar a foto. Tente de novo mais tarde."
+    "Could not save the photo. Try again later.": "Não foi possível salvar a foto. Tente de novo mais tarde.",
+    "Could not save the photo: :reason": "Não foi possível salvar a foto: :reason"
 }

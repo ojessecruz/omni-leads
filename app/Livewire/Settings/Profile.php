@@ -7,6 +7,7 @@ use Flux\Flux;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -69,7 +70,10 @@ class Profile extends Component
             // Usually storage not configured (e.g. R2 keys missing): tell the user instead of a 500.
             report($e);
             $this->reset('photo');
-            $this->addError('photo', __('Could not save the photo. Try again later.'));
+            // Admins see the storage error itself, so a misconfigured bucket can be fixed without the logs.
+            $this->addError('photo', $user->isAdmin()
+                ? __('Could not save the photo: :reason', ['reason' => Str::limit($e->getMessage(), 300)])
+                : __('Could not save the photo. Try again later.'));
 
             return;
         }
