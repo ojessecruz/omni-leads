@@ -597,5 +597,10 @@
     "This email already has an account. Log in instead.": "Este email ya tiene una cuenta. Inicia sesión.",
     "This invitation is no longer valid": "Esta invitación ya no es válida",
     "You're invited": "Te invitaron",
-    "to Omni Leads.": "a Omni Leads."
+    "to Omni Leads.": "a Omni Leads.",
+    "Profile photo updated.": "Foto de perfil actualizada.",
+    "Profile photo removed.": "Foto de perfil eliminada.",
+    "Change photo": "Cambiar foto",
+    "Upload photo": "Subir foto",
+    "JPG, PNG or WebP, up to 2 MB.": "JPG, PNG o WebP, hasta 2 MB."
 }
