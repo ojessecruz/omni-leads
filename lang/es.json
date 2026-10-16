@@ -683,5 +683,6 @@
     "Open conversation": "Abrir conversación",
     "Clear selection": "Limpiar selección",
     "Search…": "Buscar…",
-    "Nothing found": "Nada encontrado"
+    "Nothing found": "Nada encontrado",
+    "This lead already has a conversation. Reply from the inbox.": "Este lead ya tiene una conversación. Responde desde Conversaciones."
 }

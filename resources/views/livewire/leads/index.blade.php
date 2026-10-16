@@ -123,6 +123,8 @@
                                 <div class="flex justify-end gap-0.5 opacity-60 transition group-hover:opacity-100">
                                     @if ($conversation)
                                         <flux:button size="xs" variant="ghost" icon="chat-bubble-left-right" :href="route('conversations.index', ['c' => $conversation->id])" wire:navigate :tooltip="__('Open conversation')" />
+                                    @elseif ($canWhatsApp && $lead->phone && $lead->whatsapp_valid !== false)
+                                        <flux:button size="xs" variant="ghost" icon="paper-airplane" wire:click="openWhatsApp({{ $lead->id }})" :tooltip="__('Send WhatsApp')" />
                                     @endif
                                     @if (! in_array($lead->status, [\App\Enums\LeadStatus::Contacted, \App\Enums\LeadStatus::Replied], true))
                                         <flux:button size="xs" variant="ghost" icon="check" wire:click="markOne({{ $lead->id }}, 'contacted')" :tooltip="__('Mark contacted')" />
@@ -140,6 +142,27 @@
         </x-ui.panel>
     @endif
     </div>
+
+    <flux:modal name="lead-whatsapp" class="w-full max-w-lg">
+        @if ($whatsappLead)
+            <form wire:submit="sendWhatsApp" class="space-y-5">
+                <div>
+                    <p class="eyebrow">WhatsApp</p>
+                    <h2 class="display mt-1 text-3xl font-semibold text-white">{{ __('Send WhatsApp') }}</h2>
+                    <p class="mt-2 text-sm text-zinc-400">
+                        {{ __('To') }} <span class="text-zinc-200">{{ $whatsappLead->displayName() }}</span>
+                        · <span class="font-mono text-zinc-200">+{{ $whatsappLead->phone }}</span>{{ $whatsappLead->whatsapp_valid === true ? ' ('.__('WhatsApp validated').')' : '' }}.
+                        {{ __('The template lives in the project settings.') }}
+                    </p>
+                </div>
+                <flux:textarea wire:model="whatsappText" rows="7" :label="__('Message')" />
+                <div class="flex items-center justify-end gap-2">
+                    <flux:modal.close><flux:button variant="ghost">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                    <flux:button type="submit" variant="primary" icon="paper-airplane">{{ __('Send') }}</flux:button>
+                </div>
+            </form>
+        @endif
+    </flux:modal>
 
     {{-- Bulk actions float at the bottom while something is selected. --}}
     @if ($selected)

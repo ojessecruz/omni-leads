@@ -1,15 +1,18 @@
 <?php
 
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Domains\WhatsApp\FirstContactLimit;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Jobs\DeliverWebhookJob;
 use App\Jobs\SendWhatsAppJob;
+use App\Livewire\Leads\Index;
 use App\Livewire\Leads\Show;
 use App\Models\Icp;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Webhook;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -106,4 +109,42 @@ test('detalhe do lead mostra o botão só com Evolution configurado e enfileira 
 
     Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $lead->id && $j->text === 'Oi Ana');
 
+});
+
+test('lista de leads envia o primeiro WhatsApp pela linha, com o template e o limite por hora', function () {
+    Queue::fake();
+    $lead = Lead::factory()->create(['phone' => '5511999990000', 'name' => 'Ana Silva', 'whatsapp_valid' => true]);
+    $user = $lead->project->user;
+
+    Livewire::actingAs($user)->test(Index::class)->assertDontSeeHtml('openWhatsApp('.$lead->id.')');
+
+    withEvolution($lead);
+
+    $page = Livewire::actingAs($user)->test(Index::class)
+        ->assertSeeHtml('openWhatsApp('.$lead->id.')')
+        ->call('openWhatsApp', $lead->id)
+        ->assertSet('whatsappLeadId', $lead->id)
+        ->assertSet('whatsappText', WhatsAppTemplate::render(null, $lead))
+        ->set('whatsappText', 'Oi Ana')
+        ->call('sendWhatsApp')
+        ->assertHasNoErrors()
+        ->assertSet('whatsappLeadId', null);
+
+    Queue::assertPushed(SendWhatsAppJob::class, fn ($j) => $j->leadId === $lead->id && $j->text === 'Oi Ana');
+
+    // Over the hourly cap of first contacts, nothing else is queued.
+    foreach (range(2, FirstContactLimit::PER_HOUR) as $i) {
+        app(FirstContactLimit::class)->attempt($user);
+    }
+
+    $page->call('openWhatsApp', $lead->id)->call('sendWhatsApp')->assertHasErrors('whatsappText');
+    Queue::assertPushed(SendWhatsAppJob::class, 1);
+});
+
+test('lista de leads não abre o envio para lead de outro usuário', function () {
+    $mine = Lead::factory()->create();
+    $other = Lead::factory()->create(['phone' => '5511988887777']);
+
+    expect(fn () => Livewire::actingAs($mine->project->user)->test(Index::class)->call('openWhatsApp', $other->id))
+        ->toThrow(ModelNotFoundException::class);
 });

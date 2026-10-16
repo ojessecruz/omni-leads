@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Leads;
 
+use App\Actions\WhatsApp\QueueFirstContact;
 use App\Domains\Leads\LeadCsvExporter;
+use App\Domains\Outbound\WhatsAppTemplate;
+use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
 use App\Events\LeadStatusChanged;
 use App\Models\Icp;
@@ -14,10 +17,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Title('Leads')]
@@ -52,6 +57,11 @@ class Index extends Component
 
     /** @var array<int, int> */
     public array $selected = [];
+
+    /** Lead in the "Send WhatsApp" modal. */
+    public ?int $whatsappLeadId = null;
+
+    public string $whatsappText = '';
 
     public bool $selectAll = false;
 
@@ -94,6 +104,48 @@ class Index extends Component
 
         Flux::toast(text: trans_choice(':count lead marked as :status|:count leads marked as :status', $count, ['status' => $status->label()]));
     }
+
+    /** Opens the first-contact modal with the project's template filled for this lead. */
+    public function openWhatsApp(int $leadId): void
+    {
+        $lead = $this->query()->with('project')->findOrFail($leadId);
+
+        $this->resetErrorBag('whatsappText');
+        $this->whatsappLeadId = $lead->id;
+        $this->whatsappText = WhatsAppTemplate::render($lead->project->whatsapp_template, $lead);
+
+        Flux::modal('lead-whatsapp')->show();
+    }
+
+    public function sendWhatsApp(QueueFirstContact $queue): void
+    {
+        $this->validate(['whatsappText' => ['required', 'string', 'max:2000']]);
+
+        $lead = $this->query()->with('project.user')->findOrFail($this->whatsappLeadId);
+
+        // A lead with a conversation is answered from the inbox, not with a new first message.
+        if ($lead->whatsappConversations()->where('user_id', $lead->project->user_id)->exists()) {
+            $this->addError('whatsappText', __('This lead already has a conversation. Reply from the inbox.'));
+
+            return;
+        }
+
+        try {
+            $queue($lead, $this->whatsappText);
+        } catch (RuntimeException $e) {
+            $this->addError('whatsappText', $e->getMessage());
+
+            return;
+        }
+
+        $this->reset('whatsappLeadId', 'whatsappText');
+        Flux::modal('lead-whatsapp')->close();
+        Flux::toast(variant: 'success', text: __('Message queued. The lead will be marked as contacted after sending.'));
+    }
+
+    /** The send job stored the message and marked the lead contacted: redraw the row. */
+    #[On('whatsapp-message')]
+    public function onWhatsAppMessage(): void {}
 
     protected function manualStatus(string $status): LeadStatus
     {
@@ -259,6 +311,8 @@ class Index extends Component
             'cities' => $cities,
             'statusCounts' => $statusCounts,
             'qualifiedAt' => (int) config('lead-scoring.qualified_threshold', 60),
+            'canWhatsApp' => auth()->user()->hasIntegration(IntegrationProvider::Evolution),
+            'whatsappLead' => $this->whatsappLeadId ? $this->query()->find($this->whatsappLeadId) : null,
             'drivers' => $drivers,
             // Funnel order for the tabs.
             'statuses' => [LeadStatus::New, LeadStatus::Qualified, LeadStatus::Contacted, LeadStatus::Replied, LeadStatus::Discarded],
