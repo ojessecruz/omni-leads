@@ -88,6 +88,27 @@ test('abas de status contam respeitando os outros filtros, e cidade e ordenaçã
         ->assertViewHas('statusCounts', fn ($counts) => (int) $counts['new'] === 1);
 });
 
+test('opções dos filtros trazem a contagem segundo os outros filtros', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $barber = Icp::factory()->for($project)->create(['name' => 'Barbearias']);
+    $spa = Icp::factory()->for($project)->create(['name' => 'Spas']);
+    Lead::factory()->for($barber)->count(2)->create(['city' => 'Juiz de Fora']);
+    Lead::factory()->for($spa)->create(['city' => 'Juiz de Fora']);
+    Lead::factory()->for($spa)->create(['city' => 'Ubá']);
+
+    Livewire::actingAs($user)->test(Index::class)
+        ->assertViewHas('cities', fn ($cities) => $cities['Juiz de Fora']['count'] === 3 && $cities['Ubá']['count'] === 1)
+        ->assertViewHas('icps', fn ($icps) => $icps[$barber->id]['count'] === 2 && $icps[$spa->id]['count'] === 2)
+        ->set('icp', (string) $barber->id)
+        // Ubá has no barbershop: it leaves the list; the ICP counts ignore their own filter.
+        ->assertViewHas('cities', fn ($cities) => $cities->keys()->all() === ['Juiz de Fora'] && $cities['Juiz de Fora']['count'] === 2)
+        ->assertViewHas('icps', fn ($icps) => $icps[$spa->id]['count'] === 2)
+        ->set('city', 'Ubá')
+        // A selected city stays listed even with no match.
+        ->assertViewHas('cities', fn ($cities) => $cities['Ubá']['count'] === 0);
+});
+
 test('ação da linha muda o status de um lead só, sem mexer na seleção', function () {
     $user = User::factory()->create();
     $icp = Icp::factory()->for(Project::factory()->for($user))->create();
