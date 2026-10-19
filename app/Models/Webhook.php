@@ -35,6 +35,7 @@ class Webhook extends Model
         'lead.contacted' => 'Lead marked as contacted',
         'lead.enriched' => 'Lead enriched',
         'search.finished' => 'Search finished',
+        'whatsapp.message_received' => 'WhatsApp message received',
         'webhook.test' => 'Test',
     ];
 

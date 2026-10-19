@@ -710,5 +710,6 @@
     "Last used :when": "Usado :when",
     "Never used": "Nunca usado",
     "Revoke the token :name?": "¿Revocar el token :name?",
-    "No tokens yet.": "Aún no hay tokens."
+    "No tokens yet.": "Aún no hay tokens.",
+    "WhatsApp message received": "Mensaje de WhatsApp recibido"
 }

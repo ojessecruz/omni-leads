@@ -5,6 +5,7 @@ use App\Domains\Leads\LeadUpserter;
 use App\Domains\LeadSources\Drivers\GooglePlaces\GooglePlacesDriver;
 use App\Domains\LeadSources\LeadSourceManager;
 use App\Enums\IntegrationProvider;
+use App\Events\WhatsAppMessageStored;
 use App\Jobs\DeliverWebhookJob;
 use App\Jobs\EnrichLeadJob;
 use App\Jobs\MergeDuplicateLeadsJob;
@@ -17,6 +18,8 @@ use App\Models\Project;
 use App\Models\SearchJob;
 use App\Models\User;
 use App\Models\Webhook;
+use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppMessage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -66,6 +69,48 @@ test('busca concluída dispara search.finished com o resumo', function () {
 
     Queue::assertPushed(DeliverWebhookJob::class, fn ($j) => $j->event === 'search.finished' && $j->data['results_count'] === 1 && $j->data['status'] === 'done');
     Queue::assertPushed(MergeDuplicateLeadsJob::class);
+});
+
+test('mensagem recebida no WhatsApp dispara whatsapp.message_received para o projeto de cada lead da conversa', function () {
+    Queue::fake([DeliverWebhookJob::class]);
+    $user = User::factory()->create();
+    [$a, $b, $other] = Project::factory()->for($user)->count(3)->create();
+    $hookA = Webhook::factory()->for($a)->create(['events' => ['whatsapp.message_received']]);
+    $hookB = Webhook::factory()->for($b)->create(['events' => ['whatsapp.message_received']]);
+    Webhook::factory()->for($other)->create(['events' => ['whatsapp.message_received']]); // sem lead nessa conversa
+
+    $leadA = Lead::factory()->for(Icp::factory()->for($a))->create();
+    $leadB = Lead::factory()->for(Icp::factory()->for($b))->create();
+    $conversation = WhatsAppConversation::factory()->for($user)->create();
+    $conversation->leads()->attach([$leadA->id, $leadB->id]);
+
+    $message = WhatsAppMessage::factory()->for($conversation, 'conversation')->create(['body' => 'Oi, tenho interesse']);
+    WhatsAppMessageStored::dispatch($message);
+
+    Queue::assertPushed(DeliverWebhookJob::class, 2);
+    Queue::assertPushed(DeliverWebhookJob::class, fn ($j) => $j->webhookId === $hookA->id
+        && $j->event === 'whatsapp.message_received'
+        && $j->data['body'] === 'Oi, tenho interesse'
+        && $j->data['contact']['phone'] === $conversation->phone
+        && $j->data['lead']['id'] === $leadA->id);
+    Queue::assertPushed(DeliverWebhookJob::class, fn ($j) => $j->webhookId === $hookB->id && $j->data['lead']['id'] === $leadB->id);
+});
+
+test('mensagem enviada por nós não dispara webhook; conversa sem lead vai para todos os projetos do usuário', function () {
+    Queue::fake([DeliverWebhookJob::class]);
+    $user = User::factory()->create();
+    [$a, $b] = Project::factory()->for($user)->count(2)->create();
+    Webhook::factory()->for($a)->create(['events' => ['whatsapp.message_received']]);
+    Webhook::factory()->for($b)->create(['events' => ['whatsapp.message_received']]);
+    Webhook::factory()->create(['events' => ['whatsapp.message_received']]); // outro usuário
+    $conversation = WhatsAppConversation::factory()->for($user)->create();
+
+    WhatsAppMessageStored::dispatch(WhatsAppMessage::factory()->for($conversation, 'conversation')->create(['from_me' => true]));
+    Queue::assertNothingPushed();
+
+    WhatsAppMessageStored::dispatch(WhatsAppMessage::factory()->for($conversation, 'conversation')->create());
+    Queue::assertPushed(DeliverWebhookJob::class, 2);
+    Queue::assertPushed(DeliverWebhookJob::class, fn ($j) => $j->data['lead'] === null);
 });
 
 test('DeliverWebhookJob assina o corpo e registra sucesso', function () {
