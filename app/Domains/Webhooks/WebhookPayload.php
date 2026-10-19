@@ -4,6 +4,7 @@ namespace App\Domains\Webhooks;
 
 use App\Models\Lead;
 use App\Models\SearchJob;
+use App\Models\WhatsAppMessage;
 
 class WebhookPayload
 {
@@ -50,6 +51,31 @@ class WebhookPayload
             'url' => route('icps.show', $job->icp),
             'started_at' => $job->started_at?->toIso8601String(),
             'finished_at' => $job->finished_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * An incoming WhatsApp message; $lead is the conversation's lead in the receiving project.
+     *
+     * @return array<string, mixed>
+     */
+    public static function whatsappMessage(WhatsAppMessage $message, ?Lead $lead): array
+    {
+        $conversation = $message->conversation;
+
+        return [
+            'id' => $message->id,
+            'type' => $message->type->value,
+            'body' => $message->body,
+            'has_media' => $message->type->hasMedia(),
+            'sent_at' => $message->sent_at->toIso8601String(),
+            'contact' => ['phone' => $conversation->phone, 'name' => $conversation->name],
+            'conversation' => [
+                'id' => $conversation->id,
+                'unread_count' => $conversation->unread_count,
+                'url' => route('conversations.index', ['c' => $conversation->id]),
+            ],
+            'lead' => $lead ? self::lead($lead) : null,
         ];
     }
 }
