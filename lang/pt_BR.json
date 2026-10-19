@@ -694,5 +694,21 @@
     "Reconnect": "Reconectar",
     "First contacts: up to :hour per hour and :day per day (the daily limit grows while a new number warms up), :gap_min–:gap_max min apart.": "Primeiros contatos: até :hour por hora e :day por dia (o limite diário cresce enquanto um número novo aquece), com :gap_min–:gap_max min de intervalo.",
     "Only on weekdays, :from:00–:until:00.": "Só em dias úteis, das :from:00 às :until:00.",
-    "Disconnected on :time: :reason": "Desconectado em :time: :reason"
+    "Disconnected on :time: :reason": "Desconectado em :time: :reason",
+    "Read conversations and messages": "Ler conversas e mensagens",
+    "Send replies": "Enviar respostas",
+    "Token revoked. Requests with it now fail.": "Token revogado. Requisições com ele passam a falhar.",
+    "API": "API",
+    "Tokens let automations (n8n and alike) read your WhatsApp conversations and reply. Send it as Authorization: Bearer <token>.": "Tokens permitem que automações (n8n e similares) leiam suas conversas do WhatsApp e respondam. Envie como Authorization: Bearer <token>.",
+    "Token name": "Nome do token",
+    "e.g. n8n": "ex.: n8n",
+    "Permissions": "Permissões",
+    "Create token": "Criar token",
+    "Copy the token now. It will not be shown again.": "Copie o token agora. Ele não será mostrado de novo.",
+    "Endpoints": "Endpoints",
+    "Tokens": "Tokens",
+    "Last used :when": "Usado :when",
+    "Never used": "Nunca usado",
+    "Revoke the token :name?": "Revogar o token :name?",
+    "No tokens yet.": "Nenhum token ainda."
 }

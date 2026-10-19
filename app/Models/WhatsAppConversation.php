@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\WhatsAppConversationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -76,5 +77,27 @@ class WhatsAppConversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(WhatsAppMessage::class, 'whatsapp_conversation_id');
+    }
+
+    /**
+     * The last message came from the contact. Adds waiting_since: the first of the
+     * contact's messages after our last one.
+     *
+     * @param  Builder<WhatsAppConversation>  $query
+     */
+    public function scopeAwaitingReply(Builder $query): void
+    {
+        if ($query->getQuery()->columns === null) {
+            $query->select('whatsapp_conversations.*');
+        }
+
+        $query
+            ->whereRaw('(select m.from_me from whatsapp_messages m where m.whatsapp_conversation_id = whatsapp_conversations.id order by m.sent_at desc, m.id desc limit 1) = false')
+            ->addSelect(['waiting_since' => WhatsAppMessage::query()
+                ->selectRaw('min(sent_at)')
+                ->whereColumn('whatsapp_conversation_id', 'whatsapp_conversations.id')
+                ->where('from_me', false)
+                ->whereRaw("sent_at > coalesce((select max(o.sent_at) from whatsapp_messages o where o.whatsapp_conversation_id = whatsapp_conversations.id and o.from_me = true), '-infinity')"),
+            ]);
     }
 }
