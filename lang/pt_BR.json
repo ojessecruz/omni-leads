@@ -711,5 +711,15 @@
     "Never used": "Nunca usado",
     "Revoke the token :name?": "Revogar o token :name?",
     "No tokens yet.": "Nenhum token ainda.",
-    "WhatsApp message received": "Mensagem do WhatsApp recebida"
+    "WhatsApp message received": "Mensagem do WhatsApp recebida",
+    "Headers saved.": "Cabeçalhos salvos.",
+    "Headers removed.": "Cabeçalhos removidos.",
+    "The :name header is set by Omni Leads and cannot be replaced.": "O cabeçalho :name é definido pelo Omni Leads e não pode ser substituído.",
+    "Up to :max headers.": "Até :max cabeçalhos.",
+    "Invalid line: \":line\". Use one \"Name: value\" per line.": "Linha inválida: \":line\". Use um \"Nome: valor\" por linha.",
+    "Custom headers (optional)": "Cabeçalhos customizados (opcional)",
+    "Headers": "Cabeçalhos",
+    "Custom headers": "Cabeçalhos customizados",
+    "Saving replaces the current headers. Leave it empty to remove them.": "Salvar substitui os cabeçalhos atuais. Deixe vazio para removê-los.",
+    "One header per line (Name: value), sent with every delivery. Stored encrypted and never shown again.": "Um cabeçalho por linha (Nome: valor), enviado em toda entrega. Guardado criptografado e não é mostrado de novo."
 }
