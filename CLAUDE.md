@@ -29,7 +29,7 @@ Sempre rode `npm`/`composer`/`artisan` via `sail` — `node_modules` é do Linux
 - Jobs: `DispatchIcpSearchJob` → `SourceSearchJob` (fila `discovery`, idempotente por `search_jobs.status`).
 - Livewire: `Projects\Index|Show`, `Icps\Wizard` (6 passos, rascunho em `icp_drafts`), `Icps\Show`, `Leads\Index|Show`. Toda action que grava re-autoriza com `Gate::authorize` (não só o `mount`). Helpers internos de componente são `protected`; o que a view precisa vai por `render()`.
 - Ações em lote nunca fazem fan-out no request: `Icps\Show` enfileira `EnrichIcpLeadsJob`/`RescoreIcpLeadsJob` (chunkById); "selecionar tudo" em `Leads\Index` marca só a página atual (`Index::PER_PAGE`).
-- Validação em pt_BR: `lang/pt_BR/validation.php` (só as regras usadas).
+- Validação: `lang/{pt_BR,es}/validation.php` traduzem **todas** as regras do framework (`ValidationTranslationTest` falha se faltar uma); nomes de campo com artigo ("a senha"), por isso `:Attribute` no início da frase.
 
 ## Fase 2
 - Ask AI: `resources/views/prompts/icp.blade.php` (prompt) + `Domains/Icp/IcpJsonParser` (fences, texto em volta, vírgula sobrando, aspas simples, chaves sem aspas; schema em `resources/schemas/icp.schema.json` via opis/json-schema). No Ask AI o passo 5 é "Onde" (mesmo partial `icps/partials/where` do passo 4 manual) para ajustar o local sugerido; re-validar a resposta mantém as áreas já desenhadas.
