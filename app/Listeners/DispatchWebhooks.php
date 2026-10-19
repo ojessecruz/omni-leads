@@ -8,7 +8,9 @@ use App\Events\LeadEnriched;
 use App\Events\LeadQualified;
 use App\Events\LeadStatusChanged;
 use App\Events\SearchJobFinished;
+use App\Events\WhatsAppMessageStored;
 use App\Jobs\DeliverWebhookJob;
+use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Webhook;
 
@@ -40,6 +42,32 @@ class DispatchWebhooks
         $projectId = $event->searchJob->icp->project_id;
 
         $this->deliver($projectId, 'search.finished', WebhookPayload::searchJob($event->searchJob));
+    }
+
+    /**
+     * Incoming messages only. Goes to the projects of the conversation's leads, each with its
+     * own lead; a conversation without leads goes to every project of the user.
+     */
+    public function handleWhatsAppMessageStored(WhatsAppMessageStored $event): void
+    {
+        $message = $event->message;
+
+        if ($message->from_me) {
+            return;
+        }
+
+        $conversation = $message->conversation;
+        $leads = $conversation->leads->keyBy('project_id');
+        $projectIds = $leads->isNotEmpty()
+            ? $leads->keys()->all()
+            : Project::query()->where('user_id', $conversation->user_id)->pluck('id')->all();
+
+        foreach ($projectIds as $projectId) {
+            /** @var Lead|null $lead */
+            $lead = $leads->get($projectId);
+
+            $this->deliver($projectId, 'whatsapp.message_received', WebhookPayload::whatsappMessage($message, $lead));
+        }
     }
 
     /** @param  array<string, mixed>  $data */

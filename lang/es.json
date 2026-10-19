@@ -694,5 +694,6 @@
     "Reconnect": "Reconectar",
     "First contacts: up to :hour per hour and :day per day (the daily limit grows while a new number warms up), :gap_min–:gap_max min apart.": "Primeros contactos: hasta :hour por hora y :day por día (el límite diario crece mientras un número nuevo se calienta), con :gap_min–:gap_max min de intervalo.",
     "Only on weekdays, :from:00–:until:00.": "Solo en días hábiles, de :from:00 a :until:00.",
-    "Disconnected on :time: :reason": "Desconectado el :time: :reason"
+    "Disconnected on :time: :reason": "Desconectado el :time: :reason",
+    "WhatsApp message received": "Mensaje de WhatsApp recibido"
 }
