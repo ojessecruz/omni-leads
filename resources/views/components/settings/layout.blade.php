@@ -1,9 +1,9 @@
 <div class="grid grid-cols-1 gap-8 md:grid-cols-12" data-reveal>
     <nav class="font-mono flex flex-wrap gap-x-6 gap-y-2 text-2xs uppercase tracking-label md:col-span-3 md:flex-col md:gap-y-3" aria-label="{{ __('Settings') }}">
         @php
-            $items = [['profile.edit', __('Profile'), '01'], ['security.edit', __('Security'), '02'], ['appearance.edit', __('Appearance'), '03'], ['integrations.edit', __('Integrations'), '04']];
+            $items = [['profile.edit', __('Profile'), '01'], ['security.edit', __('Security'), '02'], ['appearance.edit', __('Appearance'), '03'], ['integrations.edit', __('Integrations'), '04'], ['api-tokens.index', __('API'), '05']];
             if (auth()->user()?->can('invite-users')) {
-                $items[] = ['invitations.index', __('Invitations'), '05'];
+                $items[] = ['invitations.index', __('Invitations'), '06'];
             }
         @endphp
         @foreach ($items as [$route, $label, $n])

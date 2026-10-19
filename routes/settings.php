@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Auth\AcceptInvitation;
+use App\Livewire\Settings\ApiTokens;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Integrations;
 use App\Livewire\Settings\Invitations;
@@ -18,6 +19,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('settings/appearance', Appearance::class)->name('appearance.edit');
     Route::livewire('settings/integrations', Integrations::class)->name('integrations.edit');
+    Route::livewire('settings/api', ApiTokens::class)->name('api-tokens.index');
     Route::livewire('settings/invitations', Invitations::class)->middleware('can:invite-users')->name('invitations.index');
 
     Route::livewire('settings/security', Security::class)

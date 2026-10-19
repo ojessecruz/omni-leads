@@ -93,6 +93,7 @@
                             </div>
                             <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Settings') }}</flux:menu.item>
                             <flux:menu.item :href="route('integrations.edit')" icon="key" wire:navigate>{{ __('Integrations') }}</flux:menu.item>
+                            <flux:menu.item :href="route('api-tokens.index')" icon="code-bracket" wire:navigate>{{ __('API') }}</flux:menu.item>
                             @can('invite-users')
                                 <flux:menu.item :href="route('invitations.index')" icon="user-plus" wire:navigate>{{ __('Invite users') }}</flux:menu.item>
                             @endcan

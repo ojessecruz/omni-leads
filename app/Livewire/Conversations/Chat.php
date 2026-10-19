@@ -3,9 +3,9 @@
 namespace App\Livewire\Conversations;
 
 use App\Actions\WhatsApp\FirstContactSlots;
+use App\Actions\WhatsApp\ReplyToConversation;
 use App\Domains\WhatsApp\WhatsAppInbox;
 use App\Jobs\MarkWhatsAppReadJob;
-use App\Jobs\SendWhatsAppReplyJob;
 use App\Models\WhatsAppConversation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +13,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
 use Livewire\Component;
+use RuntimeException;
 
 /**
  * One WhatsApp chat, used by the inbox and embedded in the lead page. Opening it clears the
@@ -39,20 +40,19 @@ class Chat extends Component
         $this->markRead();
     }
 
-    public function send(WhatsAppInbox $inbox, FirstContactSlots $slots): void
+    public function send(ReplyToConversation $reply): void
     {
         $conversation = $this->conversation();
 
         $this->validate(['text' => ['required', 'string', 'max:2000']]);
 
-        // Writing again to someone who never replied counts as a first contact: same caps and hours.
-        if (! $inbox->hasReplied($conversation) && $slots->bookNow($conversation->user) === null) {
-            $this->addError('text', __('This number never replied. To protect your WhatsApp, messages like this only go out on business hours and within the hourly and daily limits. Try again later.'));
+        try {
+            $reply($conversation, trim($this->text));
+        } catch (RuntimeException $e) {
+            $this->addError('text', $e->getMessage());
 
             return;
         }
-
-        SendWhatsAppReplyJob::dispatch($conversation->id, trim($this->text));
 
         $this->pending[] = trim($this->text);
         $this->reset('text');

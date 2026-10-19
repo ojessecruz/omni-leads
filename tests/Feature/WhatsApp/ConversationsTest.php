@@ -114,6 +114,7 @@ test('chat de outro usuário não abre', function () {
 test('responder quem já escreveu enfileira o envio sem limite', function () {
     Queue::fake();
     $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
     $conversation = conversationWithLead($user);
 
     Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id])
@@ -129,6 +130,7 @@ test('responder quem já escreveu enfileira o envio sem limite', function () {
 test('mensagens para quem nunca respondeu param no limite por hora', function () {
     Queue::fake();
     $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
     $conversation = conversationWithLead($user, replied: false);
     $chat = Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id]);
 
