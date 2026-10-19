@@ -53,7 +53,9 @@ class DeliverWebhookJob implements ShouldQueue
 
         $signature = hash_hmac('sha256', (string) $body, $webhook->secret);
 
+        // Custom headers first: ours (signature, event, delivery) always win.
         $response = Http::withHeaders([
+            ...($webhook->headers ?? []),
             'Content-Type' => 'application/json',
             'User-Agent' => 'OmniLeads-Webhook/1.0',
             'X-OmniLeads-Event' => $this->event,

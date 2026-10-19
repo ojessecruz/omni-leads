@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\Webhook;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -154,6 +155,45 @@ test('DeliverWebhookJob lança em 5xx para retry sem contar falha, conta uma vez
     // deactivated: no more deliveries
     (new DeliverWebhookJob($hook->id, 'webhook.test', []))->handle();
     Http::assertSentCount(1);
+});
+
+test('DeliverWebhookJob envia os cabeçalhos customizados sem deixar trocar a assinatura', function () {
+    Http::fake(['https://hooks.test/*' => Http::response('ok', 200)]);
+    $hook = Webhook::factory()->create(['secret' => 'shh', 'headers' => ['Authorization' => 'Bearer rotina-123']]);
+
+    (new DeliverWebhookJob($hook->id, 'webhook.test', ['a' => 1]))->handle();
+
+    Http::assertSent(fn ($req) => $req->hasHeader('Authorization', 'Bearer rotina-123')
+        && $req->hasHeader('X-OmniLeads-Signature', 'sha256='.hash_hmac('sha256', $req->body(), 'shh')));
+    expect($hook->getRawOriginal('headers'))->not->toContain('rotina-123');
+});
+
+test('configurações: cabeçalhos ao criar, editar substitui, vazio remove e reservado é recusado', function () {
+    $project = Project::factory()->create();
+    $component = Livewire::actingAs($project->user)->test(Settings::class, ['project' => $project]);
+
+    $component->set('webhookUrl', 'https://hooks.test/a')
+        ->set('webhookHeaders', 'X-OmniLeads-Signature: forjada')
+        ->call('addWebhook')
+        ->assertHasErrors('webhookHeaders');
+    expect($project->webhooks()->count())->toBe(0);
+
+    $component->set('webhookHeaders', 'Authorization: Bearer um')->call('addWebhook')->assertHasNoErrors();
+    $hook = $project->webhooks()->sole();
+    expect($hook->headers)->toBe(['Authorization' => 'Bearer um']);
+
+    $component->call('editHeaders', $hook->id)
+        ->assertSet('editingHeaders', '')
+        ->set('editingHeaders', "Authorization: Bearer dois\nX-Rotina: 7")
+        ->call('saveHeaders')
+        ->assertHasNoErrors();
+    expect($hook->fresh()->headers)->toBe(['Authorization' => 'Bearer dois', 'X-Rotina' => '7']);
+
+    $component->call('editHeaders', $hook->id)->call('saveHeaders');
+    expect($hook->fresh()->headers)->toBeNull();
+
+    $other = Webhook::factory()->create();
+    expect(fn () => $component->call('editHeaders', $other->id))->toThrow(ModelNotFoundException::class);
 });
 
 test('DeliverWebhookJob trata 4xx como falha definitiva: conta uma vez e não lança para retry', function () {

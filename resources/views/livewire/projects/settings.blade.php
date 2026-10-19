@@ -102,6 +102,9 @@
                     </flux:checkbox.group>
                     <flux:error name="webhookEvents" />
                 </div>
+                <div class="md:col-span-2">
+                    <flux:textarea wire:model="webhookHeaders" rows="2" class="font-mono" :label="__('Custom headers (optional)')" placeholder="Authorization: Bearer …" :description="__('One header per line (Name: value), sent with every delivery. Stored encrypted and never shown again.')" />
+                </div>
             </form>
 
             @if ($webhooks->isNotEmpty())
@@ -117,7 +120,12 @@
                         <flux:table.rows>
                             @foreach ($webhooks as $hook)
                                 <flux:table.row :key="$hook->id">
-                                    <flux:table.cell class="font-mono max-w-xs truncate text-xs text-zinc-200">{{ $hook->url }}</flux:table.cell>
+                                    <flux:table.cell class="font-mono max-w-xs text-xs text-zinc-200">
+                                        <p class="truncate">{{ $hook->url }}</p>
+                                        @if ($hook->headers)
+                                            <p class="mt-0.5 truncate text-zinc-500">+ {{ implode(', ', array_keys($hook->headers)) }}</p>
+                                        @endif
+                                    </flux:table.cell>
                                     <flux:table.cell class="font-mono text-xs text-zinc-400">{{ implode(', ', $hook->events) }}</flux:table.cell>
                                     <flux:table.cell class="font-mono text-xs text-zinc-400">
                                         {{ $hook->last_delivered_at?->diffForHumans() ?? '—' }}
@@ -128,6 +136,7 @@
                                     <flux:table.cell>
                                         <div class="flex justify-end gap-1">
                                             <flux:button size="sm" variant="ghost" icon="paper-airplane" wire:click="testWebhook({{ $hook->id }})" :aria-label="__('Test')" />
+                                            <flux:button size="sm" variant="ghost" icon="key" wire:click="editHeaders({{ $hook->id }})" :aria-label="__('Headers')" />
                                             <flux:button size="sm" variant="ghost" :icon="$hook->active ? 'pause' : 'play'" wire:click="toggleWebhook({{ $hook->id }})" :aria-label="__('Pause/resume')" />
                                             <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteWebhook({{ $hook->id }})" :wire:confirm="__('Remove this webhook?')" :aria-label="__('Remove')" />
                                         </div>
@@ -138,6 +147,21 @@
                     </flux:table>
                 </div>
             @endif
+
+            <flux:modal name="webhook-headers" class="w-full max-w-lg">
+                <form wire:submit="saveHeaders" class="space-y-5">
+                    <div>
+                        <p class="eyebrow">Webhook</p>
+                        <h2 class="display mt-1 text-3xl font-semibold text-white">{{ __('Custom headers') }}</h2>
+                        <p class="mt-2 text-sm text-zinc-400">{{ __('Saving replaces the current headers. Leave it empty to remove them.') }}</p>
+                    </div>
+                    <flux:textarea wire:model="editingHeaders" rows="4" class="font-mono" :label="__('Headers')" placeholder="Authorization: Bearer …" />
+                    <div class="flex items-center justify-end gap-2">
+                        <flux:modal.close><flux:button variant="ghost">{{ __('Cancel') }}</flux:button></flux:modal.close>
+                        <flux:button type="submit" variant="primary">{{ __('Save') }}</flux:button>
+                    </div>
+                </form>
+            </flux:modal>
         </x-ui.panel>
 
         <x-ui.panel :eyebrow="__('Outbound')" :title="__('Email template')">

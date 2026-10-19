@@ -6,6 +6,7 @@ use App\Domains\Outbound\EmailTemplate;
 use App\Domains\Outbound\Exceptions\OutboundException;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
+use App\Domains\Webhooks\WebhookHeaders;
 use App\Enums\IntegrationProvider;
 use App\Jobs\MergeDuplicateLeadsJob;
 use App\Jobs\PushLeadsToOutboundJob;
@@ -19,6 +20,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use InvalidArgumentException;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -35,6 +37,14 @@ class Settings extends Component
     public array $webhookEvents = ['lead.qualified'];
 
     public ?string $revealedSecret = null;
+
+    /** Custom headers of the new webhook, one "Name: value" per line. */
+    public string $webhookHeaders = '';
+
+    /** Webhook whose headers are being replaced in the modal. */
+    public ?int $editingHeadersId = null;
+
+    public string $editingHeaders = '';
 
     public string $emailSubject = '';
 
@@ -208,19 +218,56 @@ class Settings extends Component
             'webhookEvents.*' => ['in:'.implode(',', array_keys(Webhook::EVENTS))],
         ]);
 
+        $headers = $this->parseHeaders('webhookHeaders', $this->webhookHeaders);
+
+        if ($headers === null) {
+            return;
+        }
+
         $secret = Str::random(40);
 
         $this->project->webhooks()->create([
             'url' => $this->webhookUrl,
             'secret' => $secret,
+            'headers' => $headers ?: null,
             'events' => $this->webhookEvents,
         ]);
 
         $this->revealedSecret = $secret;
-        $this->reset('webhookUrl');
+        $this->reset('webhookUrl', 'webhookHeaders');
         $this->webhookEvents = ['lead.qualified'];
 
         Flux::toast(variant: 'success', text: __('Webhook created. Copy the secret now, it will not be shown again.'));
+    }
+
+    /** Opens the modal. Values are never shown back: saving replaces every header. */
+    public function editHeaders(int $id): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $this->editingHeadersId = $this->project->webhooks()->findOrFail($id)->id;
+        $this->reset('editingHeaders');
+        $this->resetErrorBag('editingHeaders');
+
+        Flux::modal('webhook-headers')->show();
+    }
+
+    public function saveHeaders(): void
+    {
+        Gate::authorize('update', $this->project);
+
+        $hook = $this->project->webhooks()->findOrFail($this->editingHeadersId);
+        $headers = $this->parseHeaders('editingHeaders', $this->editingHeaders);
+
+        if ($headers === null) {
+            return;
+        }
+
+        $hook->update(['headers' => $headers ?: null]);
+        $this->reset('editingHeadersId', 'editingHeaders');
+
+        Flux::modal('webhook-headers')->close();
+        Flux::toast(variant: 'success', text: $headers ? __('Headers saved.') : __('Headers removed.'));
     }
 
     public function toggleWebhook(int $id): void
@@ -268,6 +315,26 @@ class Settings extends Component
         } catch (OutboundException $e) {
             $this->campaigns = [];
             $this->campaignsError = $e->getMessage();
+        }
+    }
+
+    /**
+     * Parsed headers, or null after adding the validation error to $field.
+     *
+     * @return array<string, string>|null
+     */
+    protected function parseHeaders(string $field, string $text): ?array
+    {
+        try {
+            return WebhookHeaders::parse($text);
+        } catch (InvalidArgumentException $e) {
+            $this->addError($field, match ($e->getCode()) {
+                2 => __('The :name header is set by Omni Leads and cannot be replaced.', ['name' => $e->getMessage()]),
+                3 => __('Up to :max headers.', ['max' => $e->getMessage()]),
+                default => __('Invalid line: ":line". Use one "Name: value" per line.', ['line' => Str::limit($e->getMessage(), 60)]),
+            });
+
+            return null;
         }
     }
 

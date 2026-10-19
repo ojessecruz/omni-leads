@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int $project_id
  * @property string $url
  * @property string $secret
+ * @property array<string, string>|null $headers custom headers sent with every delivery (encrypted)
  * @property list<string> $events
  * @property bool $active
  * @property int $failures_count
@@ -22,8 +23,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $last_delivered_at
  * @property-read Project $project
  */
-#[Fillable(['project_id', 'url', 'secret', 'events', 'active', 'failures_count', 'last_status', 'last_delivered_at'])]
-#[Hidden(['secret'])]
+#[Fillable(['project_id', 'url', 'secret', 'headers', 'events', 'active', 'failures_count', 'last_status', 'last_delivered_at'])]
+#[Hidden(['secret', 'headers'])]
 class Webhook extends Model
 {
     /** @use HasFactory<WebhookFactory> */
@@ -49,6 +50,7 @@ class Webhook extends Model
     {
         return [
             'events' => 'array',
+            'headers' => 'encrypted:array',
             'active' => 'boolean',
             'last_delivered_at' => 'datetime',
         ];
