@@ -189,3 +189,7 @@ The full spec is in [`docs/spec.md`](docs/spec.md). Project conventions live in 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[GNU AGPL-3.0](LICENSE). You can use, modify and self-host Omni Leads; if you run a modified version as a service for others, you must publish your changes under the same license.
