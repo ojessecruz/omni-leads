@@ -26,11 +26,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $last_message_preview
  * @property Carbon|null $last_message_at
  * @property int $unread_count
+ * @property Carbon|null $bot_paused_at a person took over; the user's bot should not reply
  * @property Carbon $created_at
  * @property Carbon|null $updated_at
  * @property-read User $user
  */
-#[Fillable(['user_id', 'remote_jid', 'phone', 'name', 'avatar_path', 'avatar_checked_at', 'last_message_preview', 'last_message_at', 'unread_count'])]
+#[Fillable(['user_id', 'remote_jid', 'phone', 'name', 'avatar_path', 'avatar_checked_at', 'last_message_preview', 'last_message_at', 'unread_count', 'bot_paused_at'])]
 class WhatsAppConversation extends Model
 {
     /** @use HasFactory<WhatsAppConversationFactory> */
@@ -44,6 +45,7 @@ class WhatsAppConversation extends Model
             'last_message_at' => 'datetime',
             'avatar_checked_at' => 'datetime',
             'unread_count' => 'integer',
+            'bot_paused_at' => 'datetime',
         ];
     }
 

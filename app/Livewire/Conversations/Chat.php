@@ -3,9 +3,9 @@
 namespace App\Livewire\Conversations;
 
 use App\Actions\WhatsApp\FirstContactSlots;
+use App\Actions\WhatsApp\MarkConversationRead;
 use App\Actions\WhatsApp\ReplyToConversation;
 use App\Domains\WhatsApp\WhatsAppInbox;
-use App\Jobs\MarkWhatsAppReadJob;
 use App\Models\WhatsAppConversation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -59,6 +59,13 @@ class Chat extends Component
         $this->dispatch('chat-scroll');
     }
 
+    /** A person takes over the chat: the user's bot (API) sees bot_paused and stays quiet. */
+    public function toggleBot(): void
+    {
+        $conversation = $this->conversation();
+        $conversation->update(['bot_paused_at' => $conversation->bot_paused_at ? null : now()]);
+    }
+
     public function loadOlder(): void
     {
         $this->limit += self::PAGE;
@@ -101,11 +108,7 @@ class Chat extends Component
             return;
         }
 
-        $receipts = app(WhatsAppInbox::class)->markRead($conversation);
-
-        if ($receipts !== []) {
-            MarkWhatsAppReadJob::dispatch($conversation->id, $receipts);
-        }
+        app(MarkConversationRead::class)($conversation);
 
         $this->dispatch('whatsapp-read', total: (int) WhatsAppConversation::query()->where('user_id', $conversation->user_id)->sum('unread_count'));
     }
@@ -131,6 +134,8 @@ class Chat extends Component
             'hasReplied' => $inbox->hasReplied($conversation),
             'perHour' => $slots->schedule()->perHour(),
             'perDay' => $slots->dailyCap($conversation->user),
+            // The bot switch only means something to users who have an API token.
+            'hasBot' => $conversation->user->tokens()->exists(),
         ]);
     }
 }

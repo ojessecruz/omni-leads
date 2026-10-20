@@ -15,7 +15,7 @@ class ApiTokens extends Component
     /** Labels are translation keys. */
     public const array ABILITIES = [
         'conversations:read' => 'Read conversations and messages',
-        'conversations:reply' => 'Send replies',
+        'conversations:reply' => 'Reply, mark as read and pause the bot',
     ];
 
     public string $name = '';

@@ -137,11 +137,15 @@ Accept: application/json
 
 | Method | Endpoint | Ability | Description |
 | --- | --- | --- | --- |
+| `GET` | `/api/conversations` | `conversations:read` | All conversations, latest message first. Filters: `unread`, `bot_paused`, `phone`, `lead_id`, `updated_since`. Paginated (`per_page` 1–100). |
 | `GET` | `/api/conversations/awaiting` | `conversations:read` | Conversations whose last message came from the contact, oldest waiting first. Paginated (`per_page` 1–100). |
+| `GET` | `/api/conversations/{id}` | `conversations:read` | One conversation with its leads. |
+| `PATCH` | `/api/conversations/{id}` | `conversations:reply` | `{"bot_paused": true}` while a person handles the chat, `false` to hand it back. |
+| `POST` | `/api/conversations/{id}/read` | `conversations:reply` | Marks as read (sends read receipts) without replying. Returns `204`. |
 | `GET` | `/api/conversations/{id}/messages` | `conversations:read` | Messages of a conversation, newest first, cursor-paginated. |
 | `POST` | `/api/conversations/{id}/messages` | `conversations:reply` | Sends `{"text": "..."}` (max 2000 chars). Returns `202 {"status":"queued"}` and marks the conversation as read. |
 
-Rate limit: 120 requests per minute. A typical bot loop: receive `whatsapp.message_received` → read the messages → reply.
+Rate limit: 120 requests per minute. A typical bot loop: receive `whatsapp.message_received` → skip it when `conversation.bot_paused` is true → read the messages → reply. People pause the bot from the inbox ("Pause bot", shown once the user has an API token) or through the API.
 
 ## Quality
 

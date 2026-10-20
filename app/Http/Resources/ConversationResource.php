@@ -23,6 +23,8 @@ class ConversationResource extends JsonResource
             'unread_count' => $this->unread_count,
             'last_message_preview' => $this->last_message_preview,
             'last_message_at' => $this->last_message_at?->toIso8601String(),
+            'bot_paused' => $this->bot_paused_at !== null,
+            'bot_paused_at' => $this->bot_paused_at?->toIso8601String(),
             'waiting_since' => $this->when($waitingSince !== null, fn () => Carbon::parse($waitingSince)->toIso8601String()),
             'leads' => $this->leads->map(fn (Lead $lead) => [
                 'id' => $lead->id,

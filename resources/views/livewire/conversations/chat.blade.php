@@ -9,6 +9,12 @@
             <p class="truncate text-sm font-medium text-white">{{ $conversation->displayName() }}</p>
             <p class="font-mono text-2xs text-zinc-500">+{{ $conversation->phone }}</p>
         </div>
+        @if ($hasBot)
+            <flux:button size="xs" :variant="$conversation->bot_paused_at ? 'primary' : 'ghost'" :icon="$conversation->bot_paused_at ? 'play' : 'pause'" wire:click="toggleBot" data-test="toggle-bot"
+                         :title="__('Tells your bot (API) to stop replying while a person handles this chat.')">
+                {{ $conversation->bot_paused_at ? __('Resume bot') : __('Pause bot') }}
+            </flux:button>
+        @endif
         <div class="flex flex-wrap gap-1.5">
             @foreach ($conversation->leads as $lead)
                 <a wire:key="chat-lead-{{ $lead->id }}" href="{{ route('leads.show', $lead) }}" wire:navigate class="chip hover:border-signal/50 hover:text-white" title="{{ $lead->project->name }}">

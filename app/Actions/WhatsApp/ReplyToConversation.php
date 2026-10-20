@@ -4,7 +4,6 @@ namespace App\Actions\WhatsApp;
 
 use App\Domains\WhatsApp\WhatsAppInbox;
 use App\Enums\IntegrationProvider;
-use App\Jobs\MarkWhatsAppReadJob;
 use App\Jobs\SendWhatsAppReplyJob;
 use App\Models\WhatsAppConversation;
 use RuntimeException;
@@ -16,7 +15,7 @@ use RuntimeException;
  */
 class ReplyToConversation
 {
-    public function __construct(private WhatsAppInbox $inbox, private FirstContactSlots $slots) {}
+    public function __construct(private WhatsAppInbox $inbox, private FirstContactSlots $slots, private MarkConversationRead $markRead) {}
 
     /** @throws RuntimeException when WhatsApp is not connected or the first-contact caps say no */
     public function __invoke(WhatsAppConversation $conversation, string $text): void
@@ -33,10 +32,6 @@ class ReplyToConversation
 
         SendWhatsAppReplyJob::dispatch($conversation->id, $text);
 
-        $receipts = $this->inbox->markRead($conversation);
-
-        if ($receipts !== []) {
-            MarkWhatsAppReadJob::dispatch($conversation->id, $receipts);
-        }
+        ($this->markRead)($conversation);
     }
 }

@@ -4,6 +4,7 @@ use App\Enums\IntegrationProvider;
 use App\Jobs\MarkWhatsAppReadJob;
 use App\Jobs\RefreshWhatsAppAvatarJob;
 use App\Jobs\SendWhatsAppReplyJob;
+use App\Livewire\Conversations\Chat;
 use App\Livewire\Settings\ApiTokens;
 use App\Models\Icp;
 use App\Models\Lead;
@@ -135,4 +136,94 @@ test('configurações de API criam token com permissões, mostram uma vez e revo
     expect($user->tokens()->count())->toBe(0);
 
     $component->set('name', 'x')->set('abilities', ['admin'])->call('create')->assertHasErrors('abilities.0');
+});
+
+test('lista todas as conversas com filtros de não lidas, bot pausado, telefone, lead e data', function () {
+    $user = User::factory()->create();
+    $unread = apiConversation($user, [[false, 5]]);
+    $unread->update(['unread_count' => 2]);
+    $paused = apiConversation($user, [[true, 60]]);
+    $paused->update(['bot_paused_at' => now()]);
+    $old = apiConversation($user, [[false, 600]]);
+    $old->forceFill(['updated_at' => now()->subDays(3)])->saveQuietly();
+    apiConversation(User::factory()->create(), [[false, 1]]); // someone else's
+
+    Sanctum::actingAs($user, ['conversations:read']);
+
+    $this->getJson('/api/conversations')->assertOk()->assertJsonCount(3, 'data');
+    $this->getJson('/api/conversations?unread=1')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $unread->id);
+    $this->getJson('/api/conversations?bot_paused=true')
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $paused->id)
+        ->assertJsonPath('data.0.bot_paused', true);
+    $this->getJson('/api/conversations?phone=+'.$old->phone)->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $old->id);
+    $this->getJson('/api/conversations?lead_id='.$unread->leads->first()->id)->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $unread->id);
+    $this->getJson('/api/conversations?updated_since='.urlencode(now()->subDay()->toIso8601String()))->assertJsonCount(2, 'data');
+    $this->getJson('/api/conversations?unread=talvez')->assertJsonValidationErrors('unread');
+});
+
+test('detalhe da conversa traz os leads e conversa de outro usuário dá 404', function () {
+    $user = User::factory()->create();
+    $conversation = apiConversation($user, [[false, 5]]);
+    $other = apiConversation(User::factory()->create(), [[false, 5]]);
+    Sanctum::actingAs($user, ['conversations:read']);
+
+    $this->getJson("/api/conversations/{$conversation->id}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $conversation->id)
+        ->assertJsonPath('data.bot_paused', false)
+        ->assertJsonPath('data.leads.0.id', $conversation->leads->first()->id);
+
+    $this->getJson("/api/conversations/{$other->id}")->assertNotFound();
+});
+
+test('pausar e retomar o bot pela API exige permissão de resposta', function () {
+    $user = User::factory()->create();
+    $conversation = apiConversation($user);
+
+    Sanctum::actingAs($user, ['conversations:read']);
+    $this->patchJson("/api/conversations/{$conversation->id}", ['bot_paused' => true])->assertForbidden();
+
+    Sanctum::actingAs($user, ['conversations:reply']);
+    $this->patchJson("/api/conversations/{$conversation->id}", [])->assertJsonValidationErrors('bot_paused');
+    $this->patchJson("/api/conversations/{$conversation->id}", ['bot_paused' => true])
+        ->assertOk()
+        ->assertJsonPath('data.bot_paused', true);
+    expect($conversation->fresh()->bot_paused_at)->not->toBeNull();
+
+    $this->patchJson("/api/conversations/{$conversation->id}", ['bot_paused' => false])->assertJsonPath('data.bot_paused', false);
+    expect($conversation->fresh()->bot_paused_at)->toBeNull();
+});
+
+test('marcar como lida pela API zera as não lidas e envia os recibos', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $conversation = apiConversation($user, [[false, 5]]);
+    $conversation->messages()->update(['status' => null]);
+    $conversation->update(['unread_count' => 1]);
+    Sanctum::actingAs($user, ['conversations:reply']);
+
+    $this->postJson("/api/conversations/{$conversation->id}/read")->assertNoContent();
+
+    expect($conversation->fresh()->unread_count)->toBe(0);
+    Queue::assertPushed(MarkWhatsAppReadJob::class);
+    Queue::assertNotPushed(SendWhatsAppReplyJob::class);
+});
+
+test('o chat pausa e retoma o bot e só mostra o botão para quem tem token', function () {
+    $user = User::factory()->create();
+    $conversation = apiConversation($user);
+
+    Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id])
+        ->assertDontSeeHtml('data-test="toggle-bot"');
+
+    $user->createToken('bot', ['conversations:read']);
+
+    $component = Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $conversation->id])
+        ->assertSeeHtml('data-test="toggle-bot"')
+        ->call('toggleBot');
+    expect($conversation->fresh()->bot_paused_at)->not->toBeNull();
+
+    $component->call('toggleBot');
+    expect($conversation->fresh()->bot_paused_at)->toBeNull();
 });
