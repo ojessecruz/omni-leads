@@ -3,7 +3,7 @@
 
     <flux:heading level="2" class="sr-only">{{ __('API') }}</flux:heading>
 
-    <x-settings.layout :heading="__('API')" :subheading="__('Tokens let automations (n8n and alike) read your WhatsApp conversations and reply. Send it as Authorization: Bearer <token>.')">
+    <x-settings.layout :heading="__('API')" :subheading="__('Tokens let automations (n8n, CRMs and alike) read your WhatsApp conversations and leads, reply and update them. Send it as Authorization: Bearer <token>.')">
         <form wire:submit="create" class="flex flex-col gap-4">
             <flux:input wire:model="name" :label="__('Token name')" :placeholder="__('e.g. n8n')" required />
 
@@ -35,6 +35,10 @@
                 <p><span class="text-signal">POST</span> {{ url('api/conversations/{id}/read') }}</p>
                 <p><span class="text-signal">GET</span> {{ url('api/conversations/{id}/messages') }}</p>
                 <p><span class="text-signal">POST</span> {{ url('api/conversations/{id}/messages') }} <span class="text-zinc-600">{"text": "…"}</span></p>
+                <p class="pt-2"><span class="text-signal">GET</span> {{ route('api.leads.index') }} <span class="text-zinc-600">?project_id=&amp;icp_id=&amp;status=qualified,contacted&amp;min_score=&amp;updated_since=</span></p>
+                <p><span class="text-signal">GET</span> {{ url('api/leads/{id}') }}</p>
+                <p><span class="text-signal">PATCH</span> {{ url('api/leads/{id}') }} <span class="text-zinc-600">{"status": "discarded"}</span></p>
+                <p><span class="text-signal">POST</span> {{ url('api/leads/{id}/whatsapp') }} <span class="text-zinc-600">{"text": "…"}</span></p>
             </div>
         </div>
 

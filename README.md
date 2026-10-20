@@ -145,6 +145,13 @@ Accept: application/json
 | `GET` | `/api/conversations/{id}/messages` | `conversations:read` | Messages of a conversation, newest first, cursor-paginated. |
 | `POST` | `/api/conversations/{id}/messages` | `conversations:reply` | Sends `{"text": "..."}` (max 2000 chars). Returns `202 {"status":"queued"}` and marks the conversation as read. |
 
+| Method | Endpoint | Ability | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/leads` | `leads:read` | Leads of your projects, latest updated first. Filters: `project_id`, `icp_id`, `status` (comma-separated), `min_score`, `updated_since`. Paginated (`per_page` 1–100). |
+| `GET` | `/api/leads/{id}` | `leads:read` | One lead with project, ICPs, sources, conversations and any scheduled WhatsApp. |
+| `PATCH` | `/api/leads/{id}` | `leads:write` | `{"status": "discarded"}` (`new`, `qualified`, `contacted`, `replied`, `discarded`). Fires the same webhooks as the app. |
+| `POST` | `/api/leads/{id}/whatsapp` | `leads:write` | Queues the first WhatsApp message (`{"text": "..."}`, or the project's template when omitted), paced like the app: gap, hourly and daily caps, business hours. Returns `202` with `scheduled_for`. |
+
 Rate limit: 120 requests per minute. A typical bot loop: receive `whatsapp.message_received` → skip it when `conversation.bot_paused` is true → read the messages → reply. People pause the bot from the inbox ("Pause bot", shown once the user has an API token) or through the API.
 
 ## Quality

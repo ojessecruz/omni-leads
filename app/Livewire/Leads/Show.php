@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Leads;
 
+use App\Actions\Leads\ChangeLeadStatus;
 use App\Actions\WhatsApp\QueueFirstContact;
 use App\Domains\Leads\LeadScorer;
 use App\Domains\Outbound\OutboundConnectorResolver;
 use App\Domains\Outbound\WhatsAppTemplate;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
-use App\Events\LeadStatusChanged;
 use App\Jobs\EnrichLeadJob;
 use App\Jobs\PushLeadsToOutboundJob;
 use App\Models\Lead;
@@ -60,12 +60,7 @@ class Show extends Component
 
         Validator::make(['status' => $status], ['status' => [Rule::enum(LeadStatus::class)]])->validate();
 
-        $from = $this->lead->status;
-        $this->lead->update(['status' => LeadStatus::from($status)]);
-
-        if ($from !== $this->lead->status) {
-            LeadStatusChanged::dispatch($this->lead, $from);
-        }
+        app(ChangeLeadStatus::class)($this->lead, LeadStatus::from($status));
 
         Flux::toast(text: __('Status updated to :status.', ['status' => $this->lead->status->label()]));
     }

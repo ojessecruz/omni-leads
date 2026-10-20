@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-/** Personal access tokens (Sanctum) for the conversations API. */
+/** Personal access tokens (Sanctum) for the conversations and leads API. */
 #[Title('API')]
 class ApiTokens extends Component
 {
@@ -16,6 +16,8 @@ class ApiTokens extends Component
     public const array ABILITIES = [
         'conversations:read' => 'Read conversations and messages',
         'conversations:reply' => 'Reply, mark as read and pause the bot',
+        'leads:read' => 'Read leads',
+        'leads:write' => 'Change lead status and send first WhatsApp messages',
     ];
 
     public string $name = '';

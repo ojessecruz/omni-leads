@@ -36,6 +36,11 @@ class QueueFirstContact
             throw new RuntimeException(__('WhatsApp is not connected. Pair your phone in Settings > Integrations.'));
         }
 
+        // A lead with a conversation is answered from the inbox, not with a new first message.
+        if ($lead->whatsappConversations()->where('user_id', $user->id)->exists()) {
+            throw new RuntimeException(__('This lead already has a conversation. Reply from the inbox.'));
+        }
+
         if ($lead->pendingWhatsAppSends()->exists()) {
             throw new RuntimeException(__('A message to this lead is already scheduled.'));
         }
