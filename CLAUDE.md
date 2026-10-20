@@ -49,6 +49,8 @@ Sempre rode `npm`/`composer`/`artisan` via `sail` — `node_modules` é do Linux
 ./vendor/bin/sail php vendor/bin/phpstan analyse --memory-limit=1G
 ```
 
+Regras da `main` (PR, check `tests`, aprovação do code owner; admin faz bypass só via PR) ficam em `.github/rulesets/main.json`. Exigem repositório público ou GitHub Pro; aplicar com `gh api repos/ojessecruz/omni-leads/rulesets --method POST --input .github/rulesets/main.json` (para atualizar: `PUT .../rulesets/<id>`). Com a regra ativa, mergear o próprio PR exige `gh pr merge N --merge --admin`.
+
 ## Fase 3
 - Export CSV na listagem (`Domains/Leads/LeadCsvExporter`, `;` + BOM, respeita filtros e seleção).
 - `Domains/Leads/IcpStats`: leads por fonte e custo estimado (`requests_count` em `search_jobs` via `TracksRequests` + `lead_sources` de hunter/evolution × `cost_per_request` das configs).

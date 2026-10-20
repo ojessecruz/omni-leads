@@ -174,3 +174,7 @@ app/
 To add a source: create `Domains/LeadSources/Drivers/<Name>/` with `<Name>Driver` and `<Name>Mapper`, register `create<Name>Driver()` in `LeadSourceManager` and add the entry to `config/lead-sources.php`.
 
 The full spec is in [`docs/spec.md`](docs/spec.md). Project conventions live in [`CLAUDE.md`](CLAUDE.md) and [`.ai/rules`](.ai/rules), read by coding agents through [Laravel Boost](https://github.com/laravel/boost).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
