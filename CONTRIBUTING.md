@@ -45,4 +45,4 @@ The full conventions live in [`CLAUDE.md`](CLAUDE.md) and [`.ai/rules`](.ai/rule
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the same license as the project.
+By contributing, you agree that your contributions are licensed under the [GNU AGPL-3.0](LICENSE), the same license as the project.
