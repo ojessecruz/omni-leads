@@ -73,6 +73,7 @@ class WebhookPayload
             'conversation' => [
                 'id' => $conversation->id,
                 'unread_count' => $conversation->unread_count,
+                'bot_paused' => $conversation->bot_paused_at !== null,
                 'url' => route('conversations.index', ['c' => $conversation->id]),
             ],
             'lead' => $lead ? self::lead($lead) : null,

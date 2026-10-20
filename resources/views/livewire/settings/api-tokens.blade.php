@@ -28,7 +28,11 @@
         <div class="mt-10">
             <p class="eyebrow">{{ __('Endpoints') }}</p>
             <div class="font-mono mt-3 space-y-1 text-2xs text-zinc-400">
+                <p><span class="text-signal">GET</span> {{ route('api.conversations.index') }} <span class="text-zinc-600">?unread=1&amp;bot_paused=0&amp;phone=&amp;lead_id=&amp;updated_since=</span></p>
                 <p><span class="text-signal">GET</span> {{ route('api.conversations.awaiting') }}</p>
+                <p><span class="text-signal">GET</span> {{ url('api/conversations/{id}') }}</p>
+                <p><span class="text-signal">PATCH</span> {{ url('api/conversations/{id}') }} <span class="text-zinc-600">{"bot_paused": true}</span></p>
+                <p><span class="text-signal">POST</span> {{ url('api/conversations/{id}/read') }}</p>
                 <p><span class="text-signal">GET</span> {{ url('api/conversations/{id}/messages') }}</p>
                 <p><span class="text-signal">POST</span> {{ url('api/conversations/{id}/messages') }} <span class="text-zinc-600">{"text": "…"}</span></p>
             </div>
