@@ -698,7 +698,6 @@
     "Read conversations and messages": "Leer conversaciones y mensajes",
     "Token revoked. Requests with it now fail.": "Token revocado. Las solicitudes con él ahora fallan.",
     "API": "API",
-    "Tokens let automations (n8n and alike) read your WhatsApp conversations and reply. Send it as Authorization: Bearer <token>.": "Los tokens permiten que automatizaciones (n8n y similares) lean tus conversaciones de WhatsApp y respondan. Envíalo como Authorization: Bearer <token>.",
     "Token name": "Nombre del token",
     "e.g. n8n": "ej.: n8n",
     "Permissions": "Permisos",
@@ -724,5 +723,8 @@
     "Reply, mark as read and pause the bot": "Responder, marcar como leída y pausar el bot",
     "Pause bot": "Pausar bot",
     "Resume bot": "Reanudar bot",
-    "Tells your bot (API) to stop replying while a person handles this chat.": "Avisa a tu bot (API) que no responda mientras una persona atiende esta conversación."
+    "Tells your bot (API) to stop replying while a person handles this chat.": "Avisa a tu bot (API) que no responda mientras una persona atiende esta conversación.",
+    "Read leads": "Leer leads",
+    "Change lead status and send first WhatsApp messages": "Cambiar el estado de los leads y enviar el primer WhatsApp",
+    "Tokens let automations (n8n, CRMs and alike) read your WhatsApp conversations and leads, reply and update them. Send it as Authorization: Bearer <token>.": "Los tokens permiten que automatizaciones (n8n, CRMs y similares) lean tus conversaciones de WhatsApp y tus leads, respondan y los actualicen. Envíalo como Authorization: Bearer <token>."
 }

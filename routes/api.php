@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\LeadController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
@@ -36,4 +37,23 @@ Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
         ->middleware('ability:conversations:reply')
         ->whereNumber('conversation')
         ->name('api.conversations.reply');
+
+    Route::get('leads', [LeadController::class, 'index'])
+        ->middleware('ability:leads:read')
+        ->name('api.leads.index');
+
+    Route::get('leads/{lead}', [LeadController::class, 'show'])
+        ->middleware('ability:leads:read')
+        ->whereNumber('lead')
+        ->name('api.leads.show');
+
+    Route::patch('leads/{lead}', [LeadController::class, 'update'])
+        ->middleware('ability:leads:write')
+        ->whereNumber('lead')
+        ->name('api.leads.update');
+
+    Route::post('leads/{lead}/whatsapp', [LeadController::class, 'whatsapp'])
+        ->middleware('ability:leads:write')
+        ->whereNumber('lead')
+        ->name('api.leads.whatsapp');
 });

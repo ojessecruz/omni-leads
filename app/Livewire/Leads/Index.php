@@ -2,12 +2,12 @@
 
 namespace App\Livewire\Leads;
 
+use App\Actions\Leads\ChangeLeadStatus;
 use App\Actions\WhatsApp\QueueFirstContact;
 use App\Domains\Leads\LeadCsvExporter;
 use App\Domains\Outbound\WhatsAppTemplate;
 use App\Enums\IntegrationProvider;
 use App\Enums\LeadStatus;
-use App\Events\LeadStatusChanged;
 use App\Models\Icp;
 use App\Models\Lead;
 use App\Models\LeadSource;
@@ -123,13 +123,6 @@ class Index extends Component
 
         $lead = $this->query()->with('project.user')->findOrFail($this->whatsappLeadId);
 
-        // A lead with a conversation is answered from the inbox, not with a new first message.
-        if ($lead->whatsappConversations()->where('user_id', $lead->project->user_id)->exists()) {
-            $this->addError('whatsappText', __('This lead already has a conversation. Reply from the inbox.'));
-
-            return;
-        }
-
         try {
             $at = $queue($lead, $this->whatsappText);
         } catch (RuntimeException $e) {
@@ -161,12 +154,7 @@ class Index extends Component
     protected function changeStatus(array $ids, LeadStatus $status): int
     {
         $leads = $this->query()->whereIn('id', $ids)->where('status', '!=', $status)->get();
-
-        foreach ($leads as $lead) {
-            $from = $lead->status;
-            $lead->update(['status' => $status]);
-            LeadStatusChanged::dispatch($lead, $from);
-        }
+        $leads->each(fn (Lead $lead) => app(ChangeLeadStatus::class)($lead, $status));
 
         return $leads->count();
     }
