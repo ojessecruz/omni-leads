@@ -95,7 +95,7 @@ API keys are BYOK: each user adds their own under **Settings › Integrations**.
 | Brazilian company registry (`cnpj_br`) | `CNPJ_BR_ENABLED` + import below | free |
 | Website scrape | `SITE_SCRAPE_ENABLED` | free |
 | Hunter.io | Integrations | 1 credit per domain search |
-| Evolution API (WhatsApp) | Integrations: the Omni Leads server (`EVOLUTION_BASE_URL` + `EVOLUTION_API_KEY` in `.env`, optional) or the user's own server; then "Connect phone" with the QR code | depends on your instance |
+| Evolution API (WhatsApp) | Integrations: a shared server set up by whoever hosts the app (`EVOLUTION_BASE_URL` + `EVOLUTION_API_KEY` in `.env`, optional) or each user's own server; then "Connect phone" with the QR code | depends on your instance |
 | Saleshandy (cold email) | Integrations; each project picks its connector in Settings | depends on your plan |
 
 For the company registry, download the CSVs from https://dadosabertos.rfb.gov.br/CNPJ/ and import them in this order:
