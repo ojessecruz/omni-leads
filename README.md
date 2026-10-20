@@ -153,10 +153,6 @@ Rate limit: 120 requests per minute. A typical bot loop: receive `whatsapp.messa
 
 CI runs all three on every push and pull request.
 
-## Deployment
-
-A production `Dockerfile` (nginx + php-fpm + supervisor running Horizon, Reverb and the scheduler; config in [`docker/`](docker)) is deployed on Easypanel. Migrations run on container start. Health check: `/up`.
-
 ## Code layout
 
 ```
