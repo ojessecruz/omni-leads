@@ -19,6 +19,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -281,4 +282,24 @@ test('mensagem nova busca a foto de conversa nunca verificada, mas não de uma r
 
     Queue::assertPushed(RefreshWhatsAppAvatarJob::class, 1);
     Queue::assertPushed(RefreshWhatsAppAvatarJob::class, fn ($job) => $job->conversationId === $fresh->id);
+});
+
+test('caixa e chat mostram horários no fuso de exibição, não em UTC', function () {
+    config()->set('app.display_timezone', 'America/Sao_Paulo');
+    $this->travelTo(CarbonImmutable::parse('2026-10-21 13:56:00', 'UTC'));
+    $user = User::factory()->create();
+    connectIntegration($user, IntegrationProvider::Evolution);
+    $today = WhatsAppConversation::factory()->for($user)->create(['name' => 'Thiago', 'last_message_at' => '2026-10-21 13:16:00']);
+    WhatsAppMessage::factory()->for($today, 'conversation')->create(['sent_at' => '2026-10-21 13:16:00']);
+    // 01:30 UTC on the 21st is still the evening of the 20th in São Paulo.
+    WhatsAppConversation::factory()->for($user)->create(['name' => 'Ariah', 'last_message_at' => '2026-10-21 01:30:00']);
+
+    Livewire::actingAs($user)->test(Index::class)
+        ->assertSee('10:16')
+        ->assertDontSee('13:16')
+        ->assertSee('20/10');
+
+    Livewire::actingAs($user)->test(Chat::class, ['conversationId' => $today->id])
+        ->assertSee('10:16')
+        ->assertDontSee('13:16');
 });
