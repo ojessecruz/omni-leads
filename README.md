@@ -78,6 +78,7 @@ Always run `npm`, `composer` and `artisan` through `sail`: `node_modules` belong
 
 | Variable | Purpose |
 | --- | --- |
+| `APP_DISPLAY_TIMEZONE` | Timezone for times shown on screen (default `America/Sao_Paulo`); dates are stored in UTC. |
 | `REGISTRATION_ENABLED` | Public sign-up. When `false`, users join by email invitation only. |
 | `PASSKEYS_ENABLED` | Passkey sign-in. |
 | `HORIZON_ADMINS` | Comma-separated emails allowed into the Horizon dashboard. |

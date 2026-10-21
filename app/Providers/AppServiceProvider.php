@@ -45,6 +45,9 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureRateLimiters();
 
+        // $date->local(): the same moment in the display timezone, for times shown on screen.
+        CarbonImmutable::macro('local', fn () => $this->setTimezone(config('app.display_timezone')));
+
         Gate::define('invite-users', fn (User $user): bool => $user->isAdmin());
     }
 

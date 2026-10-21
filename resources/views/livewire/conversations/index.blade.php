@@ -30,7 +30,7 @@
                                 <span class="min-w-0 flex-1">
                                     <span class="flex items-baseline justify-between gap-2">
                                         <span @class(['truncate text-sm', 'font-semibold text-white' => $item->unread_count > 0, 'text-zinc-200' => $item->unread_count === 0])>{{ $item->displayName() }}</span>
-                                        <span class="font-mono shrink-0 text-2xs {{ $item->unread_count > 0 ? 'text-signal' : 'text-zinc-600' }}">{{ $item->last_message_at?->isToday() ? $item->last_message_at->format('H:i') : $item->last_message_at?->format('d/m') }}</span>
+                                        <span class="font-mono shrink-0 text-2xs {{ $item->unread_count > 0 ? 'text-signal' : 'text-zinc-600' }}">@php($at = $item->last_message_at?->local()){{ $at?->isSameDay(now()->local()) ? $at->format('H:i') : $at?->format('d/m') }}</span>
                                     </span>
                                     <span class="mt-0.5 block truncate text-2xs text-zinc-500">{{ $item->leads->map(fn ($l) => $l->displayName())->unique()->join(', ') }}</span>
                                     <span class="mt-1 flex items-center justify-between gap-2">

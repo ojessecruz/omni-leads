@@ -118,7 +118,7 @@
 
                             <flux:table.cell><flux:badge size="sm" :color="$lead->status->color()">{{ $lead->status->label() }}</flux:badge></flux:table.cell>
 
-                            <flux:table.cell class="hidden font-mono text-2xs text-zinc-500 lg:table-cell" title="{{ $lead->created_at->format('d/m/Y H:i') }}">{{ $lead->created_at->diffForHumans(short: true) }}</flux:table.cell>
+                            <flux:table.cell class="hidden font-mono text-2xs text-zinc-500 lg:table-cell" title="{{ $lead->created_at->local()->format('d/m/Y H:i') }}">{{ $lead->created_at->diffForHumans(short: true) }}</flux:table.cell>
 
                             <flux:table.cell align="end">
                                 <div class="flex justify-end gap-0.5 opacity-60 transition group-hover:opacity-100">

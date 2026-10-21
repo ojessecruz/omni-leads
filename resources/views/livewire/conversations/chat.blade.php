@@ -33,9 +33,10 @@
 
         @php($day = null)
         @forelse ($messages as $message)
-            @if ($day !== $message->sent_at->toDateString())
-                @php($day = $message->sent_at->toDateString())
-                <p wire:key="day-{{ $day }}" class="font-mono py-2 text-center text-2xs uppercase tracking-label text-zinc-600">{{ $message->sent_at->isToday() ? __('Today') : $message->sent_at->translatedFormat('d M Y') }}</p>
+            @php($sentAt = $message->sent_at->local())
+            @if ($day !== $sentAt->toDateString())
+                @php($day = $sentAt->toDateString())
+                <p wire:key="day-{{ $day }}" class="font-mono py-2 text-center text-2xs uppercase tracking-label text-zinc-600">{{ $sentAt->isSameDay(now()->local()) ? __('Today') : $sentAt->translatedFormat('d M Y') }}</p>
             @endif
             <div wire:key="msg-{{ $message->id }}" @class(['flex', 'justify-end' => $message->from_me])>
                 <div @class([
@@ -76,7 +77,7 @@
 
                     <p class="font-mono mt-1 flex items-center justify-end gap-1.5 text-2xs text-zinc-500">
                         @if ($message->from_me && $message->sent_via === 'phone')<span>{{ __('phone') }}</span>@endif
-                        <span>{{ $message->sent_at->format('H:i') }}</span>
+                        <span>{{ $sentAt->format('H:i') }}</span>
                         @if ($message->from_me)
                             <span @class(['text-signal' => $message->status === \App\Enums\WhatsAppMessageStatus::Read, 'text-red-400' => $message->status === \App\Enums\WhatsAppMessageStatus::Failed]) title="{{ $message->status?->label() }}">
                                 {{ match ($message->status) { \App\Enums\WhatsAppMessageStatus::Pending, null => '·', \App\Enums\WhatsAppMessageStatus::Sent => '✓', \App\Enums\WhatsAppMessageStatus::Failed => '!', default => '✓✓' } }}

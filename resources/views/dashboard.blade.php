@@ -55,7 +55,7 @@
                         @foreach ($recent as $lead)
                             <li>
                                 <a href="{{ route('leads.show', $lead) }}" wire:navigate class="flex items-center gap-3 px-5 py-2.5 hover:bg-white/3">
-                                    <span class="w-14 shrink-0 text-zinc-600">{{ $lead->created_at->format('H:i') }}</span>
+                                    <span class="w-14 shrink-0 text-zinc-600">{{ $lead->created_at->local()->format('H:i') }}</span>
                                     <span class="min-w-0 flex-1 truncate text-zinc-200">{{ $lead->displayName() }}</span>
                                     <span class="hidden max-w-40 truncate text-zinc-500 md:block">{{ $lead->icp->name }}</span>
                                     <span class="w-10 text-right {{ $lead->status === \App\Enums\LeadStatus::Qualified ? 'text-signal' : 'text-zinc-400' }}">{{ $lead->score }}</span>
